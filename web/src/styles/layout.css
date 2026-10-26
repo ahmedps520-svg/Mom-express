@@ -1,0 +1,353 @@
+/* ------------------------------------------------------------ app shell */
+
+.app {
+  min-height: 100dvh;
+}
+
+.main {
+  min-width: 0;
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 24px);
+}
+
+.page {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 8px 16px 24px;
+  animation: page-in 0.35s var(--ease) both;
+}
+
+.page.narrow {
+  max-width: 720px;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Top bar (phones and tablets) */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: calc(var(--topbar-h) + var(--safe-top));
+  padding: var(--safe-top) 12px 0 16px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(1.6) blur(16px);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.topbar.scrolled {
+  border-bottom-color: var(--border);
+}
+
+.topbar-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 750;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.brand-lockup .brand-mark {
+  width: 34px;
+  height: 34px;
+}
+
+/* Bottom tab bar */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  height: calc(var(--tabbar-h) + var(--safe-bottom));
+  padding: 6px 6px var(--safe-bottom);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  backdrop-filter: saturate(1.8) blur(18px);
+  -webkit-backdrop-filter: saturate(1.8) blur(18px);
+  border-top: 1px solid var(--border);
+}
+
+.tab {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  border-radius: 14px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 650;
+  transition: color 0.2s;
+}
+
+.tab svg {
+  width: 23px;
+  height: 23px;
+  stroke-width: 2;
+  transition: transform 0.25s var(--ease-spring);
+}
+
+.tab.active {
+  color: var(--brand-strong);
+}
+
+.tab.active svg {
+  transform: translateY(-1px) scale(1.06);
+}
+
+.tab .count-badge {
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 6px);
+}
+
+.tab-fab {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+}
+
+.tab-fab a {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-top: -22px;
+  border-radius: 20px;
+  background: var(--gradient);
+  color: #fff;
+  box-shadow: var(--brand-glow), 0 0 0 5px var(--bg);
+  transition: transform 0.2s var(--ease-spring);
+}
+
+.tab-fab a:active {
+  transform: scale(0.94);
+}
+
+.tab-fab svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2.5;
+}
+
+/* Sidebar (desktop) */
+.sidebar {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .app {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) 1fr;
+  }
+
+  .main {
+    padding-bottom: 40px;
+  }
+
+  .tabbar {
+    display: none;
+  }
+
+  .topbar.mobile-only {
+    display: none;
+  }
+
+  .page {
+    padding: 32px 40px 40px;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 26px 18px 20px;
+    border-right: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+  }
+
+  .sidebar .brand-lockup {
+    padding: 0 10px 22px;
+  }
+
+  .side-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 46px;
+    padding: 0 14px;
+    border-radius: 14px;
+    color: var(--text-2);
+    font-weight: 650;
+    transition:
+      background 0.2s,
+      color 0.2s;
+  }
+
+  .side-link svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .side-link:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  .side-link.active {
+    background: var(--surface);
+    color: var(--brand-strong);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .side-link .count-badge {
+    margin-left: auto;
+  }
+
+  .sidebar .btn-primary {
+    margin: 4px 0 18px;
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 10px 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (min-width: 720px) and (max-width: 1023px) {
+  .page {
+    padding: 12px 28px 32px;
+  }
+}
+
+/* ------------------------------------------------------------ page sections */
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 8px 0 20px;
+}
+
+.page-title {
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.page-sub {
+  margin-top: 4px;
+  color: var(--text-2);
+}
+
+@media (min-width: 1024px) {
+  .page-title {
+    font-size: 30px;
+  }
+}
+
+.section {
+  margin-top: 28px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.section-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--brand-strong);
+}
+
+.section-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+.two-col {
+  display: grid;
+  gap: 0 32px;
+}
+
+@media (min-width: 1024px) {
+  .two-col {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    align-items: start;
+  }
+
+  .two-col > .col-right .section:first-child {
+    margin-top: 0;
+  }
+
+  .sticky-col {
+    position: sticky;
+    top: 32px;
+  }
+}
+
+.three-col {
+  display: grid;
+  gap: 0 24px;
+}
+
+@media (min-width: 1180px) {
+  .three-col {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 0.9fr);
+    align-items: start;
+  }
+
+  .three-col > * > .section:first-child {
+    margin-top: 0;
+  }
+}
