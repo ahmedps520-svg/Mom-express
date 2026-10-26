@@ -36,7 +36,7 @@
 }
 
 .btn-primary {
-  background: var(--gradient);
+  background: var(--gradient-strong);
   color: var(--text-on-brand);
   box-shadow: var(--brand-glow);
 }
@@ -96,7 +96,7 @@
 
 .btn-white {
   background: #fff;
-  color: #e3486a;
+  color: #d12d5a;
   box-shadow: 0 8px 22px -10px rgba(120, 20, 40, 0.5);
 }
 
@@ -222,7 +222,7 @@
   height: 19px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--gradient);
+  background: var(--gradient-strong);
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -382,7 +382,7 @@
   height: 20px;
   padding: 0 7px;
   border-radius: 6px;
-  background: var(--gradient);
+  background: var(--gradient-strong);
   color: #fff;
   font-size: 10.5px;
   font-weight: 800;

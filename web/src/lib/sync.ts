@@ -135,6 +135,7 @@ export async function signOut(): Promise<void> {
   removeKey(keys.lastUser);
   teardown();
   setState({ ...initialState, session: 'signed_out' });
+  go('/');
 }
 
 function handleSessionEnded(): void {
@@ -226,7 +227,13 @@ async function loadEverything(): Promise<void> {
 export async function loadRequestDetail(id: number): Promise<RequestDetailResponse> {
   const detail = await api.get<RequestDetailResponse>(`/api/requests/${id}`);
   upsertRequests([detail.request]);
-  setState((s) => ({ requestEvents: { ...s.requestEvents, [id]: detail.events } }));
+  // Merge rather than replace, so a live event that arrived while this was
+  // loading isn't dropped.
+  setState((s) => {
+    const merged = new Map((s.requestEvents[id] ?? []).map((e) => [e.id, e]));
+    for (const e of detail.events) merged.set(e.id, e);
+    return { requestEvents: { ...s.requestEvents, [id]: [...merged.values()].sort((a, b) => a.id - b.id) } };
+  });
   return detail;
 }
 
@@ -381,6 +388,8 @@ function announce(notification: AppState['notifications'][number]): void {
   if (notification.type === 'submitted' || notification.type === 'test') return;
   if (document.visibilityState !== 'visible') return;
   if (notification.requestId && window.location.pathname === `/requests/${notification.requestId}`) return;
+  // On the dashboard the new card already arrives with a chime and a highlight.
+  if (notification.type === 'new_request' && window.location.pathname === '/') return;
   const kind = notification.type === 'declined' || notification.type === 'cancelled' ? 'warning' : notification.type === 'delivered' ? 'success' : 'info';
   toast({
     kind,

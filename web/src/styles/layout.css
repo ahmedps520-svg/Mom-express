@@ -38,7 +38,7 @@
   gap: 10px;
   min-height: calc(var(--topbar-h) + var(--safe-top));
   padding: var(--safe-top) 12px 0 16px;
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
   backdrop-filter: saturate(1.6) blur(16px);
   -webkit-backdrop-filter: saturate(1.6) blur(16px);
   border-bottom: 1px solid transparent;
@@ -141,7 +141,7 @@
   height: 56px;
   margin-top: -22px;
   border-radius: 20px;
-  background: var(--gradient);
+  background: var(--gradient-strong);
   color: #fff;
   box-shadow: var(--brand-glow), 0 0 0 5px var(--bg);
   transition: transform 0.2s var(--ease-spring);

@@ -25,8 +25,10 @@
   --coral: #ff7862;
   --orange: #ffa845;
   --brand: #ff6577;
-  --brand-strong: #e8456a;
+  --brand-strong: #d12d5a;
   --gradient: linear-gradient(135deg, #ff4f8b 0%, #ff7862 55%, #ffa845 100%);
+  /* A deeper take on the gradient wherever white text sits on it, for legibility. */
+  --gradient-strong: linear-gradient(135deg, #e83a76 0%, #e5524a 55%, #e0682a 100%);
   --gradient-soft: linear-gradient(135deg, #ffe6ef 0%, #ffeee4 100%);
   --brand-glow: 0 10px 28px -10px rgba(255, 90, 110, 0.65);
 
@@ -43,20 +45,20 @@
   /* Text */
   --text: #2a1a21;
   --text-2: #6c5a62;
-  --text-3: #a08e96;
+  --text-3: #806e76;
   --text-on-brand: #ffffff;
 
   /* Status */
-  --pending: #b26b00;
+  --pending: #8f5600;
   --pending-bg: #fff3d6;
   --pending-dot: #f5a524;
   --accepted: #4f46e5;
   --accepted-bg: #eef0ff;
   --accepted-dot: #6366f1;
-  --progress: #e2552f;
+  --progress: #b93c1a;
   --progress-bg: #ffece4;
   --progress-dot: #ff7348;
-  --delivered: #0f8a4b;
+  --delivered: #0b7a41;
   --delivered-bg: #e3f7ec;
   --delivered-dot: #22c55e;
   --declined: #b42318;
@@ -73,10 +75,10 @@
   --prio-urgent-bg: #fee2e2;
 
   /* Feedback */
-  --success: #0f8a4b;
-  --danger: #d92d20;
+  --success: #0b7a41;
+  --danger: #c0261b;
   --danger-bg: #fdecec;
-  --warning: #b26b00;
+  --warning: #8f5600;
   --info: #4f46e5;
 
   /* Shape */

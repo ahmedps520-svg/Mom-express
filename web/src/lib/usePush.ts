@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ApiError } from '../api/client';
 import { useApp } from '../store/app';
 import { toast } from '../store/toasts';
 import { disablePush, enablePush, getPushState, type PushState } from './push';
+
+/** Turns browser push errors into something a person can act on. */
+function explainPushError(err: unknown): string {
+  if (err instanceof ApiError) return err.message;
+  const name = (err as { name?: string }).name;
+  if (name === 'NotAllowedError' || name === 'AbortError') {
+    return 'Your browser didn’t allow push notifications to be set up. Check that notifications are allowed for this site and that you’re not in a private window, then try again.';
+  }
+  if (name === 'InvalidStateError') return 'Please reload MomExpress and try again.';
+  return (err as Error).message || 'Please try again.';
+}
 
 /** Push notification status for this device, with actions to turn it on or off. */
 export function usePush() {
@@ -30,7 +42,7 @@ export function usePush() {
       if (next.kind === 'on') toast({ kind: 'success', title: 'Notifications are on', body: 'This device will get alerts even when the app is closed.' });
       else if (next.kind === 'denied') toast({ kind: 'warning', title: 'Notifications are blocked', body: 'You can allow them in your browser or phone settings.' });
     } catch (err) {
-      toast({ kind: 'error', title: 'Couldn’t turn on notifications', body: (err as Error).message });
+      toast({ kind: 'error', title: 'Couldn’t turn on notifications', body: explainPushError(err), duration: 9000 });
       void refresh();
     } finally {
       setBusy(false);
