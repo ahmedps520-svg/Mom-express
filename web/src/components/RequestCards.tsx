@@ -2,47 +2,13 @@ import { ChevronRight, MapPin, StickyNote, User } from 'lucide-react';
 import { Link } from 'react-router';
 import type { DeliveryRequest, PublicUser } from '../../../shared/types.js';
 import { finishedAt } from '../store/app';
-import { firstName, formatDuration, formatTime, relativeTime, waitingFor, dayLabel } from '../lib/format';
+import { firstName, formatDuration, formatTime, waitingFor, dayLabel } from '../lib/format';
 import { useServerNow } from '../lib/hooks';
 import { EtaText } from './Eta';
 import { PriorityBadge } from './PriorityBadge';
-import { MiniProgress } from './ProgressTracker';
 import { RequestIcon } from './RequestIcon';
 import { RunnerActions } from './RequestActions';
 import { StatusPill } from './StatusPill';
-
-/** One of Mom's active requests on her home screen. */
-export function MomRequestCard({ request }: { request: DeliveryRequest }) {
-  const now = useServerNow(30_000);
-  return (
-    <Link to={`/requests/${request.id}`} className={`card card-link req-card status-edge-${request.status}`}>
-      <div className="req-card-main">
-        <RequestIcon request={request} />
-        <div className="grow stack gap-4">
-          <div className="row gap-8 between">
-            <h3 className="req-title truncate">{request.title}</h3>
-            <StatusPill status={request.status} />
-          </div>
-          <div className="row gap-8 wrap">
-            <span className="meta">
-              <MapPin /> {request.location}
-            </span>
-            <PriorityBadge priority={request.priority} />
-            <span className="meta subtle">{relativeTime(request.createdAt, now)}</span>
-          </div>
-        </div>
-      </div>
-      <MiniProgress request={request} />
-      <div className="req-card-foot">
-        <EtaText request={request} viewer="mom" />
-        <span className="meta">
-          {request.runner && request.status !== 'pending' ? firstName(request.runner.displayName) : 'Details'}
-          <ChevronRight />
-        </span>
-      </div>
-    </Link>
-  );
-}
 
 /** A request on the runner's dashboard, with the next action right on the card. */
 export function RunnerRequestCard({ request, me, fresh }: { request: DeliveryRequest; me: PublicUser; fresh: boolean }) {

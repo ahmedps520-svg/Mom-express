@@ -31,6 +31,8 @@ export const keys = {
   snapshot: (userId: string) => `mx:snapshot:${userId}`,
   outbox: (userId: string) => `mx:outbox:${userId}`,
   theme: 'mx:theme',
+  /** Language for the sign-in screen: Arabic once Mom has used this device. */
+  lang: 'mx:lang',
   pushWanted: 'mx:push-wanted',
   dismissedPushCard: 'mx:dismissed-push-card',
 };

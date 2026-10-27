@@ -1,5 +1,5 @@
 import { Compass } from 'lucide-react';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { AppShell } from './components/AppShell';
 import { BrandMark } from './components/BrandMark';
@@ -10,12 +10,11 @@ import { setNavigate } from './lib/nav';
 import { onServiceWorkerNavigate } from './lib/sw';
 import { HistoryPage } from './pages/HistoryPage';
 import { LoginPage } from './pages/LoginPage';
-import { MomHome } from './pages/MomHome';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { RequestDetailPage } from './pages/RequestDetailPage';
-import { RequestFormPage } from './pages/RequestFormPage';
 import { RunnerDashboard } from './pages/RunnerDashboard';
 import { SettingsPage } from './pages/SettingsPage';
+import { MomApp } from './mom/MomApp';
 import { useApp } from './store/app';
 
 /** Connects the router to code outside React (notification taps, toasts). */
@@ -52,35 +51,15 @@ function NotFound() {
   );
 }
 
-/** Mom-only screens; the server enforces the same rule. */
-function MomOnly({ children }: { children: ReactNode }) {
-  const role = useApp((s) => s.me?.role);
-  return role === 'mom' ? <>{children}</> : <Navigate to="/" replace />;
-}
-
 function SignedInRoutes() {
   const me = useApp((s) => s.me)!;
+  // Mom has her own simple app, in Arabic.
+  if (me.role === 'mom') return <MomApp me={me} />;
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route index element={me.role === 'mom' ? <MomHome me={me} /> : <RunnerDashboard me={me} />} />
-        <Route
-          path="new"
-          element={
-            <MomOnly>
-              <RequestFormPage key="new" me={me} mode="new" />
-            </MomOnly>
-          }
-        />
+        <Route index element={<RunnerDashboard me={me} />} />
         <Route path="requests/:id" element={<RequestDetailPage me={me} />} />
-        <Route
-          path="requests/:id/edit"
-          element={
-            <MomOnly>
-              <RequestFormPage key="edit" me={me} mode="edit" />
-            </MomOnly>
-          }
-        />
         <Route path="history" element={<HistoryPage me={me} />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings" element={<SettingsPage me={me} />} />

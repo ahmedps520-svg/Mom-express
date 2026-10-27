@@ -25,7 +25,7 @@ import { EmptyState } from '../components/EmptyState';
 import { EtaPanel } from '../components/Eta';
 import { PriorityBadge } from '../components/PriorityBadge';
 import { ProgressTracker } from '../components/ProgressTracker';
-import { MomActions, RunnerActions } from '../components/RequestActions';
+import { RunnerActions } from '../components/RequestActions';
 import { RequestIcon } from '../components/RequestIcon';
 import { CardSkeleton } from '../components/Skeletons';
 import { StatusPill } from '../components/StatusPill';
@@ -234,7 +234,7 @@ export function RequestDetailPage({ me }: { me: PublicUser }) {
       </section>
 
       <section className={`detail-actions${active ? ' sticky-actions' : ''}`}>
-        {me.role === 'mom' ? <MomActions request={request} me={me} /> : <RunnerActions request={request} me={me} />}
+        <RunnerActions request={request} me={me} />
       </section>
 
       <section className="card card-pad" aria-labelledby="timeline-title">

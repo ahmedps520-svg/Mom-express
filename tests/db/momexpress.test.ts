@@ -319,7 +319,17 @@ describe('notifications', () => {
     const momList = await t.rpc(mom, 'mx_notifications');
     expect(momList.notifications.map((n: { type: string }) => n.type)).toEqual(['delivered', 'started', 'eta_updated', 'accepted', 'submitted']);
     expect(momList.unreadCount).toBe(5);
-    expect(momList.notifications[1].body).toMatch(/^“Glass of water” → Bedroom · about 1[45] min$/);
+    // Mom's app is in Arabic, and so is everything she's told.
+    expect(momList.notifications.map((n: { title: string }) => n.title)).toEqual([
+      'وصل طلبك ✓',
+      'طلبك في الطريق إليك',
+      'تغيّر وقت الوصول',
+      'Sam وافق على طلبك',
+      'تم إرسال طلبك',
+    ]);
+    expect(momList.notifications[1].body).toMatch(/^«Glass of water» · يصل خلال حوالي ١[٤٥] دقيقة$/);
+    expect(momList.notifications[3].body).toBe('«Glass of water» · يصل خلال حوالي ٥ دقائق');
+    expect(momList.notifications[0].body).toBe('«Glass of water»');
 
     expect((await t.rpc(mom, 'mx_mark_read', { p_ids: [momList.notifications[0].id] })).unreadCount).toBe(4);
     expect((await t.rpc(mom, 'mx_mark_read', { p_request_id: r.id })).unreadCount).toBe(0);
@@ -333,6 +343,30 @@ describe('notifications', () => {
     const page2 = await t.rpc(runner, 'mx_notifications', { p_limit: 3, p_before: page1.nextCursor });
     expect(page2.notifications.map((n: { body: string }) => n.body)).toEqual(['Thing 1 · Bedroom', 'Thing 0 · Bedroom']);
     expect(page2.nextCursor).toBeNull();
+  });
+
+  it('tells Mom in Arabic when a request is declined or cancelled, with the reason', async () => {
+    const a = await create({ p_title: 'شاي' });
+    await t.rpc(runner, 'mx_decline', { p_id: a.id, p_reason: 'لا يوجد' });
+    expect((await notificationsOf(mom))[0]).toMatchObject({ type: 'declined', title: 'Sam لا يستطيع إحضاره الآن', body: '«شاي» · لا يوجد' });
+
+    const b = await create({ p_title: 'دوائي' });
+    await t.rpc(runner, 'mx_accept', { p_id: b.id });
+    expect((await notificationsOf(mom))[0]).toMatchObject({ type: 'accepted', body: '«دوائي»' });
+    await t.rpc(runner, 'mx_cancel', { p_id: b.id, p_reason: 'انتهى' });
+    expect((await notificationsOf(mom))[0]).toMatchObject({ type: 'cancelled', title: 'Sam ألغى الطلب', body: '«دوائي» · انتهى' });
+  });
+
+  it('writes Arabic minutes the Arabic way', async () => {
+    const minutes = async (n: number) => (await t.db.query<{ m: string }>('select momexpress.ar_minutes($1) as m', [n])).rows[0].m;
+    expect([await minutes(1), await minutes(2), await minutes(3), await minutes(10), await minutes(11), await minutes(25)]).toEqual([
+      'دقيقة',
+      'دقيقتين',
+      '٣ دقائق',
+      '١٠ دقائق',
+      '١١ دقيقة',
+      '٢٥ دقيقة',
+    ]);
   });
 
   it('tells the runner when Mom cancels', async () => {

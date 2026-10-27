@@ -1,4 +1,5 @@
 import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from 'lucide-react';
+import { useApp } from '../store/app';
 import { dismissToast, useToasts, type ToastKind } from '../store/toasts';
 
 const ICONS: Record<ToastKind, typeof Info> = {
@@ -10,6 +11,7 @@ const ICONS: Record<ToastKind, typeof Info> = {
 
 export function Toaster() {
   const toasts = useToasts((s) => s.toasts);
+  const arabic = useApp((s) => s.me?.role === 'mom');
   return (
     <div className="toast-stack" aria-live="polite" aria-relevant="additions">
       {toasts.map((t) => {
@@ -35,7 +37,7 @@ export function Toaster() {
                 {t.action.label}
               </button>
             )}
-            <button type="button" className="toast-close" onClick={() => dismissToast(t.id)} aria-label="Dismiss">
+            <button type="button" className="toast-close" onClick={() => dismissToast(t.id)} aria-label={arabic ? 'إغلاق' : 'Dismiss'}>
               <X />
             </button>
           </div>

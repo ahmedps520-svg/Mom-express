@@ -74,6 +74,19 @@
   font-size: 13px;
 }
 
+.login-lang {
+  align-self: center;
+}
+
+.login-ar .login-card {
+  font-size: 17px;
+}
+
+.login-ar .input,
+.login-ar .btn-lg {
+  font-size: 18px;
+}
+
 .login-foot svg {
   width: 15px;
   height: 15px;

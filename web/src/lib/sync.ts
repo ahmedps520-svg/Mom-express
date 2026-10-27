@@ -12,6 +12,7 @@ import type {
 import { ApiError, networkError, setUnauthenticatedHandler, supabase } from '../api/client';
 import { mx, type NewRequest } from '../api/mx';
 import { usernameEmail, withBase } from '../config';
+import { updateTitle } from '../mom/ar';
 import {
   addEvents,
   getState,
@@ -141,6 +142,7 @@ export function startSession(me: MeResponse): void {
     outbox: loadOutbox(me.user.id),
   }));
   writeJson(keys.lastUser, me.user.id);
+  writeJson(keys.lang, me.user.role === 'mom' ? 'ar' : 'en');
   applyTheme(me.user.prefs.theme);
   void refreshAll().catch(() => {});
   connect();
@@ -577,12 +579,15 @@ function announce(notification: AppNotification): void {
   // On the dashboard the new card already arrives with a chime and a highlight.
   if (notification.type === 'new_request' && path === '/') return;
   const kind = notification.type === 'declined' || notification.type === 'cancelled' ? 'warning' : notification.type === 'delivered' ? 'success' : 'info';
-  toast({
-    kind,
-    title: notification.title,
-    body: notification.body,
-    action: notification.requestId ? { label: 'View', run: () => go(`/requests/${notification.requestId}`) } : undefined,
-  });
+  const view = (label: string) => (notification.requestId ? { label, run: () => go(`/requests/${notification.requestId}`) } : undefined);
+  if (getState().me?.role === 'mom') {
+    // Mom's app is in Arabic, whatever language the notification was written in.
+    const request = notification.requestId ? getState().requests[notification.requestId] : undefined;
+    const title = updateTitle(notification.type, request);
+    if (title) toast({ kind, title, body: request ? `«${request.title}»` : undefined, action: view('عرض') });
+    return;
+  }
+  toast({ kind, title: notification.title, body: notification.body, action: view('View') });
 }
 
 // ------------------------------------------------------------------ mutations
@@ -696,12 +701,12 @@ export async function flushOutbox(): Promise<void> {
         // The id makes this safe to resend: the server won't create it twice.
         const request = await createRequest(item.payload);
         discardOutboxItem(clientRequestId);
-        toast({
-          kind: 'success',
-          title: 'Request sent',
-          body: `“${request.title}” is with your runner now.`,
-          action: { label: 'Track', run: () => go(`/requests/${request.id}`) },
-        });
+        const track = () => go(`/requests/${request.id}`);
+        toast(
+          getState().me?.role === 'mom'
+            ? { kind: 'success', title: 'تم إرسال طلبك ✓', body: `«${request.title}»`, action: { label: 'عرض', run: track } }
+            : { kind: 'success', title: 'Request sent', body: `“${request.title}” is with your runner now.`, action: { label: 'Track', run: track } },
+        );
       } catch (err) {
         const retry = err instanceof ApiError && (err.isNetwork || err.status === 401);
         setOutbox((items) =>

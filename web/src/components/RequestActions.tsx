@@ -1,13 +1,12 @@
-import { Ban, Bike, Check, Clock, LoaderCircle, PackageCheck, Pencil, RotateCcw, X } from 'lucide-react';
+import { Ban, Bike, Check, Clock, LoaderCircle, PackageCheck, X } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import { can } from '../../../shared/lifecycle.js';
 import type { DeliveryRequest, MutationResponse, PublicUser } from '../../../shared/types.js';
 import { mx } from '../api/mx';
 import { runRequestAction } from '../lib/actions';
 import { firstName } from '../lib/format';
 import { serverNow } from '../store/app';
-import { ConfirmSheet, EtaSheet, ReasonSheet } from './ActionSheets';
+import { EtaSheet, ReasonSheet } from './ActionSheets';
 
 type Busy = null | 'accept' | 'decline' | 'start' | 'eta' | 'deliver' | 'cancel';
 type Open = null | 'accept' | 'decline' | 'eta' | 'start-eta' | 'cancel';
@@ -152,64 +151,6 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
         onSubmit={(reason) =>
           void run('cancel', () => mx.cancel(request, reason || undefined), { title: 'Delivery cancelled', body: `${mom} has been told.` })
         }
-      />
-    </>
-  );
-}
-
-/** Mom's buttons on the tracking screen. */
-export function MomActions({ request, me }: { request: DeliveryRequest; me: PublicUser }) {
-  const navigate = useNavigate();
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const actor = { id: me.id, role: me.role };
-  const runner = request.runner ? firstName(request.runner.displayName) : null;
-
-  if (!can('cancel', request, actor)) {
-    // Finished: offer to ask for the same thing again.
-    return (
-      <div className="action-row">
-        <button type="button" className="btn btn-secondary grow" onClick={() => navigate(`/new?again=${request.id}`)}>
-          <RotateCcw /> Request again
-        </button>
-      </div>
-    );
-  }
-
-  const description =
-    request.status === 'pending'
-      ? 'Nobody has accepted it yet, so nothing is lost.'
-      : request.status === 'accepted'
-        ? `${runner ?? 'Your runner'} has already accepted it and will be told straight away.`
-        : `${runner ?? 'Your runner'} is already on the way and will be told straight away.`;
-
-  return (
-    <>
-      <div className="action-row">
-        {can('edit', request, actor) && (
-          <button type="button" className="btn btn-secondary grow" onClick={() => navigate(`/requests/${request.id}/edit`)} disabled={busy}>
-            <Pencil /> Edit
-          </button>
-        )}
-        <button type="button" className="btn btn-danger grow" onClick={() => setConfirming(true)} disabled={busy}>
-          {busy ? <Spinner /> : <X />} Cancel request
-        </button>
-      </div>
-      <ConfirmSheet
-        open={confirming}
-        onClose={() => setConfirming(false)}
-        busy={busy}
-        danger
-        title="Cancel this request?"
-        description={description}
-        cancelLabel="Keep it"
-        confirmLabel="Cancel request"
-        onConfirm={async () => {
-          setBusy(true);
-          const result = await runRequestAction(request, () => mx.cancel(request), { title: 'Request cancelled' });
-          setBusy(false);
-          if (result) setConfirming(false);
-        }}
       />
     </>
   );

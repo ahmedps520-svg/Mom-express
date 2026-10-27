@@ -47,8 +47,8 @@ function serviceWorker(): Plugin {
         .map((d) => path.relative(path.join(webRoot, 'public'), path.join(d.parentPath, d.name)).split(path.sep).join('/'));
       const built = Object.keys(bundle)
         .filter((f) => !f.endsWith('.map') && f !== 'index.html')
-        // Only the Latin fonts are needed up front; other scripts load on demand.
-        .filter((f) => !/\.woff2$/.test(f) || /-latin-wght-normal/.test(f));
+        // Only the Latin and Arabic fonts are needed up front; others load on demand.
+        .filter((f) => !/\.woff2$/.test(f) || /-(latin|arabic)-wght-normal/.test(f));
       // Paths are relative to the service worker's scope.
       const precache = ['index.html', ...built, ...publicFiles.filter((f) => !f.endsWith('robots.txt') && f !== '.nojekyll')];
       this.emitFile({ type: 'asset', fileName: 'sw.js', source: render(buildId, precache) });

@@ -6,11 +6,12 @@ It's a private app for a small family: no public sign-up, no payments, no maps. 
 
 ## Features
 
-**For Mom**
-- A friendly home screen: greeting, one big **New request** button, and shortcuts for **Water**, **Snack**, **Help** and **Medicine** that pre-fill the form (everything stays editable).
-- Ask for anything in plain text. Only *what* and *where* are needed; details, priority (Normal / High / Urgent) and notes for the runner are optional.
-- Live tracking for every request: status, a progress tracker with timestamps, and a countdown such as *“Arriving in about 5 minutes”* that runs on the device and adjusts the moment the runner changes the ETA. If the ETA passes, it says so plainly instead of counting into negative numbers. Estimates are always labelled as estimates.
-- Edit or cancel a request any time before it's delivered, and **Request again** from anything in history.
+**For Mom** — her own very simple app, entirely in Arabic and right to left (`web/src/mom/`)
+- A home screen of big picture buttons: ماء، شاي، أكل، دواء، تعال عندي، and شيء آخر to write anything.
+- Sending takes two taps: the item, then *where she is* (her last place is already picked). **Urgent** and a **note** are optional.
+- A tracking screen with one big, plain message (*“أحمد في الطريق إليك”*), four steps with times, and *“يصل خلال حوالي ٥ دقائق”*, counted down on the phone and always marked as approximate.
+- Cancel before it's delivered, and **اطلبيه مرة أخرى** (request again) from anything in her history.
+- Large text by default, with a text-size setting; Arabic digits; her notifications are in Arabic too.
 
 **For the runner**
 - A dashboard built around incoming work: new requests sorted by urgency with destination, priority, notes and waiting time visible on the card, plus **Accept** and **Decline** right there.
@@ -33,7 +34,7 @@ Nothing runs on your own machine.
 
 ## Setting it up
 
-1. **Database.** In the Supabase dashboard, open the **SQL Editor**, paste all of `supabase/migrations/20261026200000_momexpress.sql` and click **Run**. Then tell the database where the push function lives, replacing `<project-ref>`:
+1. **Database.** In the Supabase dashboard, open the **SQL Editor** and run each file in `supabase/migrations/`, oldest first (paste it all and click **Run**). Then tell the database where the push function lives, replacing `<project-ref>`:
    ```sql
    insert into momexpress.settings (key, value)
    values ('push_function_url', 'https://<project-ref>.supabase.co/functions/v1/mx-push')
@@ -69,6 +70,7 @@ shared/            types, lifecycle rules and validation used by the app (and mi
 web/               React app (Vite) and the service worker (web/sw.js)
   src/api/         Supabase client and one typed wrapper per database function
   src/lib/sync.ts  sign-in, live connection, reconnection, offline outbox
+  src/mom/         Mom's app (Arabic, simplified); src/pages is the runner's app
 tests/             database tests (the real migration, run in PGlite) and lifecycle tests
 ```
 

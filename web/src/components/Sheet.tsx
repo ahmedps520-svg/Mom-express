@@ -13,6 +13,7 @@ export function Sheet({
   children,
   actions,
   busy = false,
+  closeLabel = 'Close',
 }: {
   open: boolean;
   onClose: () => void;
@@ -22,6 +23,7 @@ export function Sheet({
   actions?: ReactNode;
   /** While true, the sheet can't be dismissed (an action is saving). */
   busy?: boolean;
+  closeLabel?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const busyRef = useRef(busy);
@@ -65,7 +67,7 @@ export function Sheet({
               </h2>
               {description && <p className="sheet-desc">{description}</p>}
             </div>
-            <button type="button" className="icon-btn" onClick={onClose} disabled={busy} aria-label="Close">
+            <button type="button" className="icon-btn" onClick={onClose} disabled={busy} aria-label={closeLabel}>
               <X />
             </button>
           </div>
