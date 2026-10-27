@@ -63,24 +63,32 @@ async function send(subscriptions: Subscription[], payload: Payload) {
   if (subscriptions.length === 0) return { attempted: 0, delivered: 0 };
   const keys = await vapidKeys();
   const urgent = payload.priority === 'urgent' || payload.type === 'new_request';
+  const vapidDetails = { subject: keys.subject, publicKey: keys.publicKey, privateKey: keys.privateKey };
+  const body = JSON.stringify(payload);
+  // No Topic header: Apple's push service refuses any push that has one
+  // (400 BadWebPushTopic). The notification's tag already replaces older
+  // notifications about the same request on the device.
+  const options = [
+    // Household requests are only useful for a while.
+    { vapidDetails, TTL: 60 * 60, urgency: urgent ? 'high' : 'normal', timeout: 10_000 },
+    // If a push service objects to the request itself, try once more with only the basics.
+    { vapidDetails, TTL: 60 * 60, timeout: 10_000 },
+  ] as const;
+
   const results = await Promise.all(
     subscriptions.map(async (sub) => {
-      try {
-        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload), {
-          vapidDetails: { subject: keys.subject, publicKey: keys.publicKey, privateKey: keys.privateKey },
-          // Household requests are only useful for a while.
-          TTL: 60 * 60,
-          urgency: urgent ? 'high' : 'normal',
-          // Collapses repeated updates about one request while a device is offline.
-          topic: payload.requestId ? `request-${payload.requestId}` : undefined,
-          timeout: 10_000,
-        });
-        return { id: sub.id, ok: true };
-      } catch (err) {
-        const status = (err as { statusCode?: number }).statusCode;
-        console.warn(`push to subscription ${sub.id} failed`, status ?? (err as Error).message);
-        return { id: sub.id, ok: false, gone: status === 404 || status === 410 };
+      const target = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
+      for (const [attempt, opts] of options.entries()) {
+        try {
+          await webpush.sendNotification(target, body, opts);
+          return { id: sub.id, ok: true };
+        } catch (err) {
+          const { statusCode: status, body: reason } = err as { statusCode?: number; body?: string };
+          console.warn(`push to subscription ${sub.id} failed (attempt ${attempt + 1})`, status ?? (err as Error).message, reason ?? '');
+          if (status !== 400 || attempt === options.length - 1) return { id: sub.id, ok: false, gone: status === 404 || status === 410 };
+        }
       }
+      return { id: sub.id, ok: false };
     }),
   );
   await admin.rpc('mx_push_report', { p_results: results });
