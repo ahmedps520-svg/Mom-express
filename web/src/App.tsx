@@ -5,7 +5,7 @@ import { AppShell } from './components/AppShell';
 import { BrandMark } from './components/BrandMark';
 import { EmptyState } from './components/EmptyState';
 import { Toaster } from './components/Toaster';
-import { withBase } from './config';
+import { BASE } from './config';
 import { setNavigate } from './lib/nav';
 import { onServiceWorkerNavigate } from './lib/sw';
 import { HistoryPage } from './pages/HistoryPage';
@@ -93,8 +93,10 @@ function SignedInRoutes() {
 
 export function App() {
   const session = useApp((s) => s.session);
+  // BASE keeps its trailing slash, so home is /Mom-express/ (inside the service
+  // worker's scope, which matters offline) rather than /Mom-express.
   return (
-    <BrowserRouter basename={withBase('') || undefined}>
+    <BrowserRouter basename={BASE}>
       <RouterBridge />
       {session === 'booting' ? <Splash /> : session === 'signed_in' ? <SignedInRoutes /> : <LoginPage />}
       <Toaster />

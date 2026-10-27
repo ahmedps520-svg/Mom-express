@@ -1,7 +1,7 @@
 // End-to-end smoke test: drives Mom (on a phone-sized screen) and the runner
 // (on a desktop-sized screen) through a full delivery against a deployed copy
 // of the app, checking that each change shows up live on the other screen.
-// Run it with no requests in progress; it leaves its test requests in history.
+// Run it with no requests in progress. It leaves its test requests in history.
 //
 //   BASE_URL=https://<owner>.github.io/Mom-express/ MOM_USER=mom MOM_PASS=... RUNNER_USER=... RUNNER_PASS=... \
 //     node scripts/e2e-smoke.mjs [screenshot-dir]
@@ -170,7 +170,8 @@ try {
   await mom.getByRole('button', { name: 'Declined' }).click();
   await mom.locator('.chip[aria-pressed="true"]', { hasText: 'Declined' }).waitFor();
   await mom.waitForTimeout(300);
-  if ((await mom.locator('.history-row').count()) !== 1) throw new Error('Declined filter shows the wrong number of rows');
+  const rows = await mom.locator('.history-row .title-row').allInnerTexts();
+  if (!rows.length || rows.some((r) => !r.includes('Declined'))) throw new Error('Declined filter shows the wrong rows');
   await mom.goto('notifications');
   await mom.locator('.notif').first().waitFor();
   await snap(mom, '18-mom-notifications');
@@ -212,6 +213,12 @@ try {
   await runner.getByRole('article', { name: /Biscuits/ }).waitFor({ timeout: 20000 });
   await mom.getByRole('heading', { name: 'Waiting to send' }).waitFor({ state: 'detached', timeout: 10000 });
   if ((await runner.getByRole('article', { name: /Biscuits/ }).count()) !== 1) throw new Error('Offline request was duplicated');
+
+  step('Tidy up: the runner declines the last test request');
+  const biscuits = runner.getByRole('article', { name: /Biscuits/ });
+  await biscuits.getByRole('button', { name: 'Decline' }).click();
+  await runner.getByRole('dialog').getByRole('button', { name: 'Decline request' }).click();
+  await biscuits.waitFor({ state: 'detached', timeout: 10000 });
 
   console.log(errors.length ? `\nConsole errors:\n${errors.join('\n')}` : '\nNo console errors.');
   console.log('\nSmoke test passed.');

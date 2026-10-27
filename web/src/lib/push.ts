@@ -29,6 +29,11 @@ function pushSupported(): boolean {
   return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
 }
 
+/** Whether this device has notifications allowed and not switched off in the app. */
+export function pushAllowedHere(): boolean {
+  return pushSupported() && Notification.permission === 'granted' && readJson<boolean>(keys.pushWanted) !== false;
+}
+
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
   const raw = atob((base64 + padding).replace(/-/g, '+').replace(/_/g, '/'));
@@ -107,8 +112,7 @@ export async function disablePush(): Promise<PushState> {
  * (it is tied to the session, so a new sign-in needs it registered again).
  */
 export async function syncPushSubscription(vapidKey: string): Promise<void> {
-  if (!pushSupported() || Notification.permission !== 'granted') return;
-  if (readJson<boolean>(keys.pushWanted) === false) return;
+  if (!pushAllowedHere()) return;
   try {
     const reg = await readyRegistration();
     let sub = await reg.pushManager.getSubscription();

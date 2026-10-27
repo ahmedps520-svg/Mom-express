@@ -27,7 +27,7 @@ import {
 import { toast } from '../store/toasts';
 import { startOfDay } from './format';
 import { go } from './nav';
-import { fetchVapidKey, forgetPushOnThisDevice, syncPushSubscription, unregisterPushOnServer } from './push';
+import { fetchVapidKey, forgetPushOnThisDevice, pushAllowedHere, syncPushSubscription, unregisterPushOnServer } from './push';
 import { playChime, vibrate } from './sound';
 import { keys, readJson, removeKey, writeJson } from './storage';
 import { onPushSubscriptionChange } from './sw';
@@ -151,6 +151,7 @@ export function startSession(me: MeResponse): void {
 
 /** Makes sure this device's push subscription is registered for the current session. */
 async function preparePush(publicKey: string | null): Promise<void> {
+  if (!pushAllowedHere()) return;
   const gen = generation;
   // The key pair is created the first time anyone needs it.
   const key = publicKey ?? (await fetchVapidKey().catch(() => null));
