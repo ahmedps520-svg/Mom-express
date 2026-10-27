@@ -22,6 +22,7 @@
     "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "compression": "^1.8.2",
     "express": "^5.3.0",
     "helmet": "^8.3.0",
@@ -29,6 +30,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.12",
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "@types/compression": "^1.8.1",
     "@types/express": "^5.0.6",
