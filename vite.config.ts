@@ -9,7 +9,7 @@ const webRoot = path.resolve('web');
 // The Supabase project the app talks to. Override with VITE_SUPABASE_URL and
 // VITE_SUPABASE_KEY to point a build at another project. The publishable key
 // is safe to ship: every table is closed to it (see supabase/migrations).
-process.env.VITE_SUPABASE_URL ||= 'https://ffwjxvrporoittxrllru.supabase.co';
+process.env.VITE_SUPABASE_URL ||= 'https://lmllhebtzizohtimulfs.supabase.co';
 process.env.VITE_SUPABASE_KEY ||= 'sb_publishable_L3INZ93lx6-JQNPfFh55wA_NoeJ1XJr';
 const supabaseHost = new URL(process.env.VITE_SUPABASE_URL).host;
 
