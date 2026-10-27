@@ -24,86 +24,55 @@ It's a private app for a small family: no public sign-up, no payments, no maps. 
 - Works as an installed app (PWA) on iPhone, Android and desktop, with light and dark themes.
 - Honest about connectivity: a live/offline indicator, the last synced data while offline, and requests made offline are clearly marked **Not sent yet** until the server confirms them. Success messages only appear after the server has saved the change.
 
-## Quick start
+## How it's hosted
 
-Requires **Node.js 22.13 or newer** (it uses Node's built-in SQLite, so there are no native modules to compile).
+- **The app** is a static site on **GitHub Pages**, published by `.github/workflows/pages.yml` on every push: https://ahmedps520-svg.github.io/Mom-express/
+- **The data** lives in **Supabase**: Postgres for storage and the delivery rules, Supabase Auth for sign-in, Realtime for live updates, and one Edge Function (`mx-push`) that sends push notifications.
 
-```bash
-npm install
-npm run build
+Nothing runs on your own machine.
 
-# Create the family's accounts (there is no public sign-up)
-npm run users -- add --username mom --role mom --name "Mom"
-npm run users -- add --username sam --role runner --name "Sam"
+## Setting it up
 
-npm start          # http://localhost:3000
-```
+1. **Database.** In the Supabase dashboard, open the **SQL Editor**, paste all of `supabase/migrations/20261026200000_momexpress.sql` and click **Run**. Then tell the database where the push function lives, replacing `<project-ref>`:
+   ```sql
+   insert into momexpress.settings (key, value)
+   values ('push_function_url', 'https://<project-ref>.supabase.co/functions/v1/mx-push')
+   on conflict (key) do update set value = excluded.value;
+   ```
+2. **Accounts.** There is no public sign-up. Create each person in the SQL Editor (the role is `mom` or `runner`):
+   ```sql
+   select momexpress.create_member('mom', 'a-long-password', 'Mom', 'mom');
+   select momexpress.create_member('ahmed', 'another-long-password', 'Ahmed', 'runner');
+   ```
+   People sign in with the username. Later: `select momexpress.set_password('mom', 'new-password');` and `select momexpress.set_disabled('ahmed', true);` (or `false` to re-enable).
+3. **Push notifications.** **Edge Functions → Deploy a new function → Via Editor**, name it `mx-push`, paste `supabase/functions/mx-push/index.ts`, and turn **off** “Verify JWT” (the function checks callers itself). It creates its VAPID keys the first time it's used and stores them in the database. With the Supabase CLI instead: `supabase functions deploy mx-push --no-verify-jwt`.
+4. **The app.** Put the project's URL and publishable key in `vite.config.ts` (or set the repository variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`). Both are meant to be public. In GitHub, **Settings → Pages → Source: GitHub Actions**, then push.
 
-For development, `npm run dev` runs the API on :3000 and the Vite dev server on http://localhost:5173 with hot reload. Use `npm run users:dev -- add` to create accounts without building first.
-
-### Managing accounts
-
-```bash
-npm run users -- list
-npm run users -- add                     # asks for everything
-npm run users -- passwd mom              # also signs Mom out on every device
-npm run users -- rename sam "Samuel"
-npm run users -- disable sam             # signs out everywhere; history is kept
-npm run users -- enable sam
-```
-
-Roles are `mom` (makes requests) and `runner` (delivers them). Roles can only be set here, never from the app. You can add more people with either role: each requester only sees their own requests, and every runner sees all of them.
-
-Passwords are typed without echoing. For scripts, set `MOMEXPRESS_PASSWORD`. On hosts without a shell, set the `INITIAL_*` variables in `.env.example` to create the first two accounts on first start.
-
-## Deploying
-
-MomExpress is one Node process and one SQLite file. Anything that can run a Docker container or Node 22 will do: a home server or Raspberry Pi, or a small cloud host such as Fly.io, Railway or Render (attach a persistent volume for the data folder).
-
-```bash
-docker compose up -d
-docker compose exec momexpress npm run users -- add
-```
-
-**Use HTTPS.** Browsers only allow installing the app and sending push notifications on secure origins (localhost is the exception). Common options:
-
-- **A hosting platform** — they provide HTTPS automatically.
-- **Caddy** in front of the app — automatic certificates: `momexpress.example.com { reverse_proxy localhost:3000 }`.
-- **Tailscale** (`tailscale serve 3000`) — HTTPS inside your private network, so the app isn't on the public internet at all.
-
-Behind any proxy, set `TRUST_PROXY=1` so the server sees HTTPS and real client addresses (sign-in rate limiting depends on it). See `.env.example` for every setting.
-
-**Backups:** everything lives in `DATA_DIR` (default `./data`). Back up `momexpress.db` (with its `-wal` file if present) while the server is stopped, or use `sqlite3 momexpress.db ".backup copy.db"` while it runs.
+To work on the app locally: `npm install`, then `npm run dev` (http://localhost:5173, using the same Supabase project).
 
 ### Notifications
 
-- Push keys (VAPID) are generated on first start and stored in the database, so nothing needs configuring. Set `VAPID_SUBJECT` to a real contact address.
-- Each person turns notifications on per device from **Settings** (or the prompt on the home screen). If the browser blocks them, the app says so and keeps working; everything still appears in the notification centre.
-- **iPhone and iPad:** web push needs iOS 16.4+ and the app added to the Home Screen (Share → Add to Home Screen). The app explains this when needed.
-- Signing out removes that device's push subscription, so a shared tablet never shows the previous person's notifications.
+Push works in Chrome, Edge and Firefox on computers and Android, and on iPhone/iPad (iOS 16.4+) once MomExpress is added to the Home Screen. Each person turns it on per device in **Settings**, where they can also send a test notification and choose which kinds they get. Notifications open straight to the request when tapped. Signing out stops a device's notifications.
 
 ### Updates
 
-Deploy a new version and restart the server. Open apps notice within moments (or the next time they're opened) and show **“A new version of MomExpress is ready — Update”**. Pages are always fetched fresh when online, and only the hashed static files are cached, so an installed app can't get stuck on an old version. **Settings → Check for updates** does the same on demand.
+Push to the branch and the workflow publishes the new version. Open apps notice within moments (or the next time they're opened) and show **“A new version of MomExpress is ready — Update”**. Pages are always fetched fresh when online, and only the hashed static files are cached, so an installed app can't get stuck on an old version. **Settings → Check for updates** does the same on demand.
 
 ## How it works
 
 ```
-server/            Express API, SQLite storage, live updates, push
-  requests.ts      the delivery workflow: every change is checked, saved with a history entry, then broadcast
-  realtime.ts      Server-Sent Events hub (one stream per open app window)
-  notifications.ts in-app notifications + push fan-out
-  push.ts          Web Push with VAPID
-  auth.ts          scrypt password hashing, sliding sessions, sign-in rate limiting
-  db.ts            schema and migrations
-  cli/users.ts     account management
-shared/            types, lifecycle rules and validation used by both sides
+supabase/
+  migrations/      the whole backend: tables, delivery rules, the app's API (public.mx_* functions),
+                   row-level security for live updates, and the trigger that sends pushes
+  functions/mx-push  Edge Function that sends Web Push notifications
+shared/            types, lifecycle rules and validation used by the app (and mirrored in SQL)
 web/               React app (Vite) and the service worker (web/sw.js)
+  src/api/         Supabase client and one typed wrapper per database function
   src/lib/sync.ts  sign-in, live connection, reconnection, offline outbox
-tests/             API, lifecycle and push tests (Vitest)
+tests/             database tests (the real migration, run in PGlite) and lifecycle tests
 ```
 
-**Request lifecycle.** The rules live in `shared/lifecycle.ts`; the server enforces them and the app uses the same code to decide which buttons to show.
+**Request lifecycle.** The database enforces the rules (`momexpress.check_action`); the app uses the same rules from `shared/lifecycle.ts` to decide which buttons to show.
 
 | Status | Mom can | Runner can |
 |---|---|---|
@@ -114,25 +83,25 @@ tests/             API, lifecycle and push tests (Vitest)
 
 Once a request is accepted, only the runner who accepted it can progress it. Finished requests can never change: the database itself rejects updates to them and deletions of any request.
 
-**Live updates and conflicts.** Each change is broadcast to everyone allowed to see that request. Every request carries a version number; updates only apply to the version they were based on, and the app always keeps the newest copy, so a slow response can't undo a newer change. If two people act at once (say, Mom cancels just as the runner accepts), the second action is refused with a clear message and the latest state. After any reconnect, the app reloads everything, so nothing missed while offline is lost. The connection sends a ping every 20 seconds so phones that silently drop connections are detected and reconnected.
+**Live updates and conflicts.** Every change adds a row to the request's history; the app listens for those (and for its own notifications) through Supabase Realtime, limited by row-level security to what each person may see. Each action locks the request, so two people acting at once take turns: the second is refused with a clear message and the latest state. If Mom changes a request while the runner is about to act on it, the runner's action is refused until they've seen the change. Every request carries a version number and the app always keeps the newest copy, so a slow response can't undo a newer change. After any reconnect the app reloads everything, so nothing missed while offline is lost.
 
 **No duplicates.** Each new request carries an id generated when the form opens. Resending it — a double tap, a retry after a timeout, or the offline outbox — returns the request that already exists instead of creating another. The form also warns if an identical request is already active.
 
-**Privacy and security.** Accounts are created only from the command line. Sessions are random tokens stored hashed, in `HttpOnly`, `SameSite=Lax` cookies, and slide forward with use. State-changing requests must be JSON from the app's own origin (CSRF protection), every API response is `no-store`, and a strict Content Security Policy is applied. Requesters can't see each other's requests, notifications or devices; push subscriptions are tied to the session that created them; nothing is exposed without signing in. Sign-in attempts are rate limited.
+**Privacy and security.** Accounts are created only in the SQL Editor. The app's tables live in their own `momexpress` schema, which the Supabase API doesn't expose; the app can only call the `public.mx_*` functions, which check who is signing in and what they may do. Requesters can't see each other's requests, notifications or devices; push subscriptions are tied to the sign-in session that created them, so signing out (or changing the password, which signs out other devices) stops them. Sign-in is rate limited by Supabase Auth, and the site ships a strict Content Security Policy.
 
 ## Testing
 
 ```bash
-npm test             # API, lifecycle and web-push tests
+npm test             # database tests (the real migration in PGlite) and lifecycle tests
 npm run typecheck
 ```
 
-`scripts/e2e-smoke.mjs` drives Mom (phone-sized) and the runner (desktop-sized) through full deliveries in a real browser — quick request, accept with ETA, ETA change, delivery, cancellation, decline, offline queueing and offline reload — against a running server with a fresh database. It needs Playwright with Chromium installed:
+`scripts/e2e-smoke.mjs` drives Mom (phone-sized) and the runner (desktop-sized) through full deliveries in a real browser — quick request, accept with ETA, ETA change, delivery, cancellation, decline, offline queueing and offline reload. It needs Playwright with Chromium installed:
 
 ```bash
-BASE_URL=http://localhost:3000 MOM_USER=mom MOM_PASS=... RUNNER_USER=sam RUNNER_PASS=... node scripts/e2e-smoke.mjs ./screenshots
+BASE_URL=https://ahmedps520-svg.github.io/Mom-express/ MOM_USER=mom MOM_PASS=... RUNNER_USER=ahmed RUNNER_PASS=... node scripts/e2e-smoke.mjs ./screenshots
 ```
 
 ## Room to grow
 
-The data model and code are set up for the next steps without reworking anything: favourite templates and more shortcuts (`QUICK_REQUESTS` in `shared/constants.ts`), more household locations (`LOCATIONS`), more family members (already supported — add accounts), delivery comments and a shared timeline (the per-request history in `request_events` already records every step), simple statistics (`/api/stats`), custom sounds (`web/src/lib/sound.ts`) and image attachments.
+The data model and code are set up for the next steps without reworking anything: favourite templates and more shortcuts (`QUICK_REQUESTS` in `shared/constants.ts`), more household locations (`LOCATIONS`), more family members (already supported — add accounts), delivery comments and a shared timeline (the per-request history in `request_events` already records every step), simple statistics (`mx_stats`), custom sounds (`web/src/lib/sound.ts`) and image attachments.

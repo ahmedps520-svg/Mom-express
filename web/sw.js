@@ -6,19 +6,23 @@
  *   person taps "Update" (or every window is closed) before taking over.
  * - Shows push notifications and opens the right request when one is tapped.
  *
- * The build fills in BUILD_ID and PRECACHE (see vite.config.ts).
+ * The build fills in BUILD_ID and PRECACHE (see vite.config.ts). Paths are
+ * relative to where the app is served from (e.g. /Mom-express/ on GitHub Pages).
  */
 
 const BUILD_ID = '__BUILD_ID__';
 const PRECACHE = __PRECACHE__;
 const CACHE = `momexpress-${BUILD_ID}`;
-const SHELL = '/index.html';
+const SCOPE = new URL(self.registration.scope).pathname;
+const SHELL = SCOPE + 'index.html';
+/** Turns an app path like "/requests/4" into one under the app's scope. */
+const inScope = (path) => SCOPE.replace(/\/$/, '') + path;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE);
-      await cache.addAll(PRECACHE.map((url) => new Request(url, { cache: 'reload' })));
+      await cache.addAll(PRECACHE.map((url) => new Request(SCOPE + url, { cache: 'reload' })));
     })(),
   );
 });
@@ -41,15 +45,14 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return;
-  // Live data is never cached: it must always be the real, current state.
-  if (url.pathname.startsWith('/api/')) return;
+  // Live data (on Supabase) is never cached: it must always be the real, current state.
+  if (url.origin !== self.location.origin || !url.pathname.startsWith(SCOPE)) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(networkFirstPage(request));
     return;
   }
-  if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')) {
+  if (url.pathname.startsWith(SCOPE + 'assets/') || url.pathname.startsWith(SCOPE + 'icons/')) {
     event.respondWith(cacheFirst(request));
   }
 });
@@ -58,7 +61,9 @@ async function networkFirstPage(request) {
   const cache = await caches.open(CACHE);
   try {
     const response = await fetchWithTimeout(request, 5000);
-    if (response.ok) await cache.put(SHELL, response.clone());
+    // GitHub Pages answers app paths like /requests/4 with 404.html, which is
+    // the same app; only keep the real index page as the offline copy.
+    if (response.ok && new URL(request.url).pathname === SCOPE) await cache.put(SHELL, response.clone());
     return response;
   } catch {
     const cached = (await cache.match(SHELL)) || (await caches.match(SHELL));
@@ -132,8 +137,8 @@ self.addEventListener('push', (event) => {
       const urgent = data.priority === 'urgent';
       await self.registration.showNotification(data.title || 'MomExpress', {
         body: data.body || '',
-        icon: '/icons/icon-192.png',
-        badge: '/icons/badge-96.png',
+        icon: SCOPE + 'icons/icon-192.png',
+        badge: SCOPE + 'icons/badge-96.png',
         tag: data.tag || undefined,
         renotify: Boolean(data.tag),
         requireInteraction: urgent,
@@ -161,26 +166,22 @@ self.addEventListener('notificationclick', (event) => {
         win.postMessage({ type: 'navigate', url: path });
         return;
       }
-      await self.clients.openWindow(new URL(path, self.location.origin).href);
+      await self.clients.openWindow(new URL(inScope(path), self.location.origin).href);
     })(),
   );
 });
 
-// Browsers occasionally rotate push subscriptions; re-register the new one.
+// Browsers occasionally rotate push subscriptions. Only the app knows who is
+// signed in, so ask any open window to register the new one; otherwise the
+// app does it the next time it starts.
 self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil(
     (async () => {
-      let subscription = event.newSubscription;
-      if (!subscription && event.oldSubscription && event.oldSubscription.options) {
-        subscription = await self.registration.pushManager.subscribe(event.oldSubscription.options);
+      if (!event.newSubscription && event.oldSubscription && event.oldSubscription.options) {
+        await self.registration.pushManager.subscribe(event.oldSubscription.options);
       }
-      if (!subscription) return;
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: subscription.toJSON() }),
-      });
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const win of windows) win.postMessage({ type: 'push-subscription-changed' });
     })(),
   );
 });

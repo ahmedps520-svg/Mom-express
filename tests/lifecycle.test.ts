@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { can, checkAction, type RequestAction } from '../shared/lifecycle.js';
 import type { RequestStatus } from '../shared/types.js';
 
-const mom = { id: 1, role: 'mom' as const };
-const otherMom = { id: 4, role: 'mom' as const };
-const runner = { id: 2, role: 'runner' as const };
-const otherRunner = { id: 3, role: 'runner' as const };
+const mom = { id: 'mom-id', role: 'mom' as const };
+const otherMom = { id: 'other-mom-id', role: 'mom' as const };
+const runner = { id: 'runner-id', role: 'runner' as const };
+const otherRunner = { id: 'other-runner-id', role: 'runner' as const };
 
-function request(status: RequestStatus, runnerId: number | null = status === 'pending' ? null : runner.id) {
+function request(status: RequestStatus, runnerId: string | null = status === 'pending' ? null : runner.id) {
   return { status, requester: { id: mom.id }, runner: runnerId ? { id: runnerId, displayName: 'Sam' } : null };
 }
 

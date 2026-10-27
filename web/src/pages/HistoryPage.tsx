@@ -1,8 +1,9 @@
 import { History, LoaderCircle, SearchX } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import type { PublicUser, RequestListResponse, RequestStatus } from '../../../shared/types.js';
-import { api, ApiError } from '../api/client';
+import type { PublicUser, RequestStatus } from '../../../shared/types.js';
+import { ApiError } from '../api/client';
+import { mx } from '../api/mx';
 import { EmptyState } from '../components/EmptyState';
 import { HistoryRow } from '../components/RequestCards';
 import { RowSkeleton } from '../components/Skeletons';
@@ -29,10 +30,7 @@ export function HistoryPage({ me }: { me: PublicUser }) {
 
   const load = useCallback(
     async (before?: number) => {
-      const qs = new URLSearchParams({ scope: 'history', limit: '30' });
-      if (filter !== 'all') qs.set('status', filter);
-      if (before) qs.set('before', String(before));
-      const page = await api.get<RequestListResponse>(`/api/requests?${qs}`);
+      const page = await mx.listHistory({ status: filter === 'all' ? null : filter, before, limit: 30 });
       upsertRequests(page.requests);
       setCursor(page.nextCursor);
     },

@@ -1,4 +1,6 @@
-import { api } from '../api/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
+import { ApiError, networkError, supabase } from '../api/client';
+import { mx } from '../api/mx';
 import { keys, readJson, removeKey, writeJson } from './storage';
 import { getRegistration } from './sw';
 
@@ -60,19 +62,23 @@ export async function getPushState(): Promise<PushState> {
     const reg = await readyRegistration();
     const sub = await reg.pushManager.getSubscription();
     if (!sub) return { kind: 'off' };
-    const { subscribed } = await api.post<{ subscribed: boolean }>('/api/push/status', { endpoint: sub.endpoint });
+    const { subscribed } = await mx.pushStatus(sub.endpoint);
     return subscribed ? { kind: 'on' } : { kind: 'off' };
   } catch (err) {
     return { kind: 'unknown', message: (err as Error).message };
   }
 }
 
-/** Asks for permission (must run from a tap) and registers this device. */
-export async function enablePush(vapidKey: string): Promise<PushState> {
+/**
+ * Asks for permission and registers this device. Must run from a tap, and the
+ * permission request comes first: Safari ignores it after any other waiting.
+ */
+export async function enablePush(getKey: () => Promise<string>): Promise<PushState> {
   if (!pushSupported()) return isIos() && !isStandalone() ? { kind: 'needs-install' } : { kind: 'unsupported' };
   const permission = await Notification.requestPermission();
   if (permission === 'denied') return { kind: 'denied' };
   if (permission !== 'granted') return { kind: 'off' };
+  const vapidKey = await getKey();
   const reg = await readyRegistration();
   let sub = await reg.pushManager.getSubscription();
   if (sub && !sameKey(sub, vapidKey)) {
@@ -80,7 +86,7 @@ export async function enablePush(vapidKey: string): Promise<PushState> {
     sub = null;
   }
   sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapidKey) });
-  await api.post('/api/push/subscribe', { subscription: sub.toJSON() });
+  await mx.pushSubscribe(sub.toJSON());
   writeJson(keys.pushWanted, true);
   return { kind: 'on' };
 }
@@ -90,7 +96,7 @@ export async function disablePush(): Promise<PushState> {
   const reg = await readyRegistration();
   const sub = await reg.pushManager.getSubscription();
   if (sub) {
-    await api.post('/api/push/unsubscribe', { endpoint: sub.endpoint });
+    await mx.pushUnsubscribe(sub.endpoint);
     await sub.unsubscribe().catch(() => false);
   }
   return { kind: 'off' };
@@ -113,9 +119,21 @@ export async function syncPushSubscription(vapidKey: string): Promise<void> {
     if (!sub && readJson<boolean>(keys.pushWanted) === true) {
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapidKey) });
     }
-    if (sub) await api.post('/api/push/subscribe', { subscription: sub.toJSON() });
+    if (sub) await mx.pushSubscribe(sub.toJSON());
   } catch (err) {
     console.warn('Could not refresh push subscription', err);
+  }
+}
+
+/** Before signing out, tells the server to stop sending to this device. */
+export async function unregisterPushOnServer(): Promise<void> {
+  if (!pushSupported()) return;
+  try {
+    const reg = await readyRegistration();
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) await mx.pushUnsubscribe(sub.endpoint);
+  } catch {
+    /* the server also stops once the session has ended */
   }
 }
 
@@ -132,6 +150,23 @@ export async function forgetPushOnThisDevice(): Promise<void> {
   }
 }
 
+/** Calls the push function (supabase/functions/mx-push) as the signed-in person. */
+async function invokePush<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke<T>('mx-push', { body });
+  if (!error) return data as T;
+  if (error instanceof FunctionsHttpError) {
+    const details = (await error.context.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiError(error.context.status, 'push_failed', details?.error ?? 'Push notifications aren’t available right now.');
+  }
+  throw networkError();
+}
+
+/** The public key push subscriptions are made with (created on first use). */
+export async function fetchVapidKey(): Promise<string | null> {
+  const { publicKey } = await invokePush<{ publicKey: string | null }>({ action: 'vapid' });
+  return publicKey;
+}
+
 export async function sendTestPush(): Promise<{ attempted: number; delivered: number }> {
-  return api.post('/api/push/test');
+  return invokePush({ action: 'test' });
 }

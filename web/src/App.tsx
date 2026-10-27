@@ -5,6 +5,7 @@ import { AppShell } from './components/AppShell';
 import { BrandMark } from './components/BrandMark';
 import { EmptyState } from './components/EmptyState';
 import { Toaster } from './components/Toaster';
+import { withBase } from './config';
 import { setNavigate } from './lib/nav';
 import { onServiceWorkerNavigate } from './lib/sw';
 import { HistoryPage } from './pages/HistoryPage';
@@ -93,7 +94,7 @@ function SignedInRoutes() {
 export function App() {
   const session = useApp((s) => s.session);
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={withBase('') || undefined}>
       <RouterBridge />
       {session === 'booting' ? <Splash /> : session === 'signed_in' ? <SignedInRoutes /> : <LoginPage />}
       <Toaster />

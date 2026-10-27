@@ -1,5 +1,5 @@
-// Types shared by the server and the web app. These describe the JSON the API
-// sends and receives, so both sides agree on a single shape.
+// Types for the JSON the database functions (supabase/migrations) return and
+// the app sends, so both sides agree on a single shape.
 
 export type Role = 'mom' | 'runner';
 
@@ -40,7 +40,8 @@ export interface UserPrefs {
 }
 
 export interface PublicUser {
-  id: number;
+  /** The Supabase Auth user id. */
+  id: string;
   username: string;
   displayName: string;
   role: Role;
@@ -48,7 +49,7 @@ export interface PublicUser {
 }
 
 export interface PersonRef {
-  id: number;
+  id: string;
   displayName: string;
 }
 
@@ -78,6 +79,8 @@ export interface DeliveryRequest {
   cancelReason: string | null;
   cancelledBy: PersonRef | null;
   detailsUpdatedAt: number | null;
+  /** The id the app generated when sending it, so a resend is recognised. */
+  clientRequestId: string | null;
   version: number;
 }
 
@@ -114,7 +117,6 @@ export interface AppNotification {
 export interface MeResponse {
   user: PublicUser;
   serverTime: number;
-  buildId: string;
   push: { publicKey: string | null };
 }
 
@@ -150,20 +152,9 @@ export interface StatsResponse {
   averageMinutesToday: number | null;
 }
 
-export interface ApiErrorBody {
-  error: {
-    code: string;
-    message: string;
-    fields?: Record<string, string>;
-  };
-  /** Included on conflicts so the client can show the latest state. */
+/** Extra information on an error raised by a database function. */
+export interface ErrorDetail {
+  fields?: Record<string, string>;
+  /** Included on conflicts so the app can show the latest state. */
   request?: DeliveryRequest;
 }
-
-/** Events pushed to signed-in clients over the live connection. */
-export type LiveEvent =
-  | { type: 'hello'; serverTime: number; buildId: string }
-  | { type: 'request'; request: DeliveryRequest; event: RequestEvent | null }
-  | { type: 'notification'; notification: AppNotification; unreadCount: number }
-  | { type: 'notifications_read'; ids: number[] | 'all'; unreadCount: number }
-  | { type: 'me'; user: PublicUser };

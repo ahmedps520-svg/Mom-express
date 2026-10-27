@@ -32,7 +32,6 @@ export interface AppState {
   signedOutReason: 'expired' | null;
   me: PublicUser | null;
   vapidKey: string | null;
-  serverBuildId: string | null;
   /** Server time minus device time, so countdowns are right even if the device clock is off. */
   clockOffset: number;
 
@@ -61,7 +60,6 @@ export const initialState: AppState = {
   signedOutReason: null,
   me: null,
   vapidKey: null,
-  serverBuildId: null,
   clockOffset: 0,
   requests: {},
   requestEvents: {},

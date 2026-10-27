@@ -3,15 +3,16 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { LIMITS, LOCATIONS, QUICK_REQUESTS } from '../../../shared/constants.js';
 import { isActive, isFinal, STATUS_LABELS } from '../../../shared/lifecycle.js';
-import type { DeliveryRequest, MutationResponse, Priority, PublicUser, QuickType } from '../../../shared/types.js';
+import type { DeliveryRequest, Priority, PublicUser, QuickType } from '../../../shared/types.js';
 import { createRequestSchema, fieldErrors as zodFieldErrors, updateRequestSchema } from '../../../shared/validation.js';
-import { api, ApiError } from '../api/client';
+import { ApiError } from '../api/client';
+import { mx } from '../api/mx';
 import { ConfirmSheet } from '../components/ActionSheets';
 import { EmptyState } from '../components/EmptyState';
 import { runRequestAction } from '../lib/actions';
 import { useBack, useTitle } from '../lib/hooks';
 import { newClientRequestId } from '../lib/id';
-import { applyMutation, loadRequestDetail, queueRequest } from '../lib/sync';
+import { createRequest, loadRequestDetail, queueRequest } from '../lib/sync';
 import { useApp } from '../store/app';
 import { toast } from '../store/toasts';
 
@@ -137,21 +138,25 @@ export function RequestFormPage({ me, mode }: { me: PublicUser; mode: 'new' | 'e
     setBusy(true);
     setFormError(null);
     try {
-      const result = await api.post<MutationResponse>('/api/requests', parsed.data);
-      const request = applyMutation(result);
+      const request = await createRequest(parsed.data);
       toast({ kind: 'success', title: 'Request sent!', body: `Your runner has been told about “${request.title}”.` });
       navigate(`/requests/${request.id}`, { replace: true });
     } catch (err) {
       setBusy(false);
       if (err instanceof ApiError && err.isNetwork) {
-        // Not lost and not pretended: it's kept here and sent when we're back online.
+        // Not lost and not pretended: it's kept here and sent when we're back
+        // online. Resending is safe; the server won't create it twice.
         queueRequest(parsed.data);
         toast({
           kind: 'warning',
-          title: 'Not sent yet',
-          body: 'You’re offline. It will be sent automatically when you reconnect.',
+          title: 'May not have been sent',
+          body: 'We couldn’t reach MomExpress. It’s saved here and will be sent automatically when you’re back online.',
         });
         navigate('/', { replace: true });
+      } else if (err instanceof ApiError && err.status === 401) {
+        // Signed out mid-send: it goes out once you sign back in.
+        queueRequest(parsed.data);
+        toast({ kind: 'warning', title: 'Not sent yet', body: 'Sign in again and it will be sent automatically.' });
       } else if (err instanceof ApiError && Object.keys(err.fields).length) {
         setErrors(err.fields);
         focusFirstError(err.fields);
@@ -180,7 +185,10 @@ export function RequestFormPage({ me, mode }: { me: PublicUser; mode: 'new' | 'e
       return;
     }
     setBusy(true);
-    const updated = await runRequestAction(`/api/requests/${source.id}`, parsed.data, { title: 'Changes saved', body: 'Your runner can see the update.' }, 'patch');
+    const updated = await runRequestAction(source, () => mx.editRequest(source, parsed.data), {
+      title: 'Changes saved',
+      body: 'Your runner can see the update.',
+    });
     setBusy(false);
     if (updated) back();
   };

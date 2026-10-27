@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../api/client';
-import { useApp } from '../store/app';
+import { setState as setAppState, useApp } from '../store/app';
 import { toast } from '../store/toasts';
-import { disablePush, enablePush, getPushState, type PushState } from './push';
+import { disablePush, enablePush, fetchVapidKey, getPushState, type PushState } from './push';
 
 /** Turns browser push errors into something a person can act on. */
 function explainPushError(err: unknown): string {
@@ -31,13 +31,15 @@ export function usePush() {
   }, [refresh]);
 
   const enable = useCallback(async () => {
-    if (!vapidKey) {
-      toast({ kind: 'error', title: 'Can’t turn on notifications yet', body: 'Connect to the internet and try again.' });
-      return;
-    }
     setBusy(true);
     try {
-      const next = await enablePush(vapidKey);
+      const next = await enablePush(async () => {
+        if (vapidKey) return vapidKey;
+        const key = await fetchVapidKey();
+        if (!key) throw new Error('Push notifications aren’t set up on the server yet.');
+        setAppState({ vapidKey: key });
+        return key;
+      });
       setState(next);
       if (next.kind === 'on') toast({ kind: 'success', title: 'Notifications are on', body: 'This device will get alerts even when the app is closed.' });
       else if (next.kind === 'denied') toast({ kind: 'warning', title: 'Notifications are blocked', body: 'You can allow them in your browser or phone settings.' });

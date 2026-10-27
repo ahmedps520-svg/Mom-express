@@ -2,9 +2,11 @@ import { Ban, Bike, Check, Clock, LoaderCircle, PackageCheck, Pencil, RotateCcw,
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { can } from '../../../shared/lifecycle.js';
-import type { DeliveryRequest, PublicUser } from '../../../shared/types.js';
+import type { DeliveryRequest, MutationResponse, PublicUser } from '../../../shared/types.js';
+import { mx } from '../api/mx';
 import { runRequestAction } from '../lib/actions';
 import { firstName } from '../lib/format';
+import { serverNow } from '../store/app';
 import { ConfirmSheet, EtaSheet, ReasonSheet } from './ActionSheets';
 
 type Busy = null | 'accept' | 'decline' | 'start' | 'eta' | 'deliver' | 'cancel';
@@ -25,9 +27,9 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
   const mom = firstName(request.requester.displayName);
   const size = compact ? 'btn-sm' : '';
 
-  const run = async (kind: Exclude<Busy, null>, path: string, body: unknown, success: { title: string; body?: string }) => {
+  const run = async (kind: Exclude<Busy, null>, call: () => Promise<MutationResponse>, success: { title: string; body?: string }) => {
     setBusy(kind);
-    const result = await runRequestAction(`/api/requests/${request.id}/${path}`, body, success);
+    const result = await runRequestAction(request, call, success);
     setBusy(null);
     // Leave the sheet open on failure so the runner can retry.
     if (result) setOpen(null);
@@ -35,7 +37,7 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
   };
 
   const accept = (etaMinutes?: number) =>
-    run('accept', 'accept', etaMinutes ? { etaMinutes } : {}, {
+    run('accept', () => mx.accept(request, etaMinutes), {
       title: 'Request accepted',
       body: `${mom} can see you’re on it${etaMinutes ? ` · ETA ${etaMinutes} min` : ''}.`,
     });
@@ -70,7 +72,7 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
           confirmLabel="Decline request"
           suggestions={['Busy right now', 'We’re out of it', 'Can’t find it', 'Back soon']}
           onSubmit={(reason) =>
-            void run('decline', 'decline', reason ? { reason } : {}, { title: 'Request declined', body: `${mom} has been told.` })
+            void run('decline', () => mx.decline(request, reason || undefined), { title: 'Request declined', body: `${mom} has been told.` })
           }
         />
       </>
@@ -79,6 +81,11 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
 
   const assignedToMe = request.runner?.id === me.id;
   if (!assignedToMe || (request.status !== 'accepted' && request.status !== 'in_progress')) return null;
+
+  const started = { title: 'Delivery started', body: `${mom} can see it’s on the way.` };
+  const start = (etaMinutes?: number) => run('start', () => mx.start(request, etaMinutes), started);
+  // An ETA that has already passed would tell Mom it's late before it has even left.
+  const hasFutureEta = request.etaAt !== null && request.etaAt > serverNow();
 
   return (
     <>
@@ -90,11 +97,7 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
           <button
             type="button"
             className={`btn btn-primary grow ${size}`}
-            onClick={() =>
-              request.etaAt
-                ? void run('start', 'start', {}, { title: 'Delivery started', body: `${mom} can see it’s on the way.` })
-                : setOpen('start-eta')
-            }
+            onClick={() => (hasFutureEta ? void start() : setOpen('start-eta'))}
             disabled={busy !== null}
           >
             {busy === 'start' ? <Spinner /> : <Bike />} Start delivery
@@ -103,7 +106,7 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
           <button
             type="button"
             className={`btn btn-success grow ${size}`}
-            onClick={() => void run('deliver', 'deliver', {}, { title: 'Delivered!', body: `Nice work. ${mom} has been told.` })}
+            onClick={() => void run('deliver', () => mx.deliver(request), { title: 'Delivered!', body: `Nice work. ${mom} has been told.` })}
             disabled={busy !== null}
           >
             {busy === 'deliver' ? <Spinner /> : <PackageCheck />} Mark delivered
@@ -122,19 +125,21 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
         busy={busy === 'eta'}
         title={request.etaAt ? 'Update the ETA' : 'Set an ETA'}
         description={`${mom} will see the new estimate straight away.`}
-        onSubmit={(m) => void run('eta', 'eta', { etaMinutes: m }, { title: 'ETA updated', body: `About ${m} min.` })}
+        onSubmit={(m) => void run('eta', () => mx.setEta(request, m), { title: 'ETA updated', body: `About ${m} min.` })}
       />
       <EtaSheet
         open={open === 'start-eta'}
         onClose={() => setOpen(null)}
         busy={busy === 'start'}
         title="Start the delivery"
-        description={`Add an ETA so ${mom} knows when to expect it.`}
-        onSubmit={(m) =>
-          void run('start', 'start', { etaMinutes: m }, { title: 'Delivery started', body: `${mom} can see it’s on the way.` })
+        description={
+          request.etaAt
+            ? `The ETA you set has passed. Set a new one so ${mom} knows when to expect it.`
+            : `Add an ETA so ${mom} knows when to expect it.`
         }
-        skipLabel="Start without an ETA"
-        onSkip={() => void run('start', 'start', {}, { title: 'Delivery started', body: `${mom} can see it’s on the way.` })}
+        onSubmit={(m) => void start(m)}
+        skipLabel={request.etaAt ? 'Start and keep the old ETA' : 'Start without an ETA'}
+        onSkip={() => void start()}
       />
       <ReasonSheet
         open={open === 'cancel'}
@@ -145,7 +150,7 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
         confirmLabel="Cancel delivery"
         suggestions={['We ran out', 'Can’t find it', 'Something came up']}
         onSubmit={(reason) =>
-          void run('cancel', 'cancel', reason ? { reason } : {}, { title: 'Delivery cancelled', body: `${mom} has been told.` })
+          void run('cancel', () => mx.cancel(request, reason || undefined), { title: 'Delivery cancelled', body: `${mom} has been told.` })
         }
       />
     </>
@@ -201,7 +206,7 @@ export function MomActions({ request, me }: { request: DeliveryRequest; me: Publ
         confirmLabel="Cancel request"
         onConfirm={async () => {
           setBusy(true);
-          const result = await runRequestAction(`/api/requests/${request.id}/cancel`, {}, { title: 'Request cancelled' });
+          const result = await runRequestAction(request, () => mx.cancel(request), { title: 'Request cancelled' });
           setBusy(false);
           if (result) setConfirming(false);
         }}

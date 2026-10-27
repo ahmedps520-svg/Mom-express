@@ -15,7 +15,8 @@ import {
 import { useState, type FormEvent } from 'react';
 import { LIMITS, NOTIFICATION_CATEGORIES } from '../../../shared/constants.js';
 import type { PublicUser, ThemePreference, UserPrefs } from '../../../shared/types.js';
-import { api, ApiError } from '../api/client';
+import { ApiError } from '../api/client';
+import { mx } from '../api/mx';
 import { ConfirmSheet } from '../components/ActionSheets';
 import { Sheet } from '../components/Sheet';
 import { initials } from '../lib/format';
@@ -24,7 +25,7 @@ import { installHelp, promptInstall, useInstall } from '../lib/install';
 import { sendTestPush } from '../lib/push';
 import { playChime } from '../lib/sound';
 import { checkForUpdate, applyUpdate } from '../lib/sw';
-import { signOut } from '../lib/sync';
+import { changePassword, signOut } from '../lib/sync';
 import { applyTheme } from '../lib/theme';
 import { usePush } from '../lib/usePush';
 import { setState, useApp } from '../store/app';
@@ -47,7 +48,7 @@ function Switch({ checked, onChange, label, busy }: { checked: boolean; onChange
 
 async function savePrefs(prefs: Partial<UserPrefs>): Promise<boolean> {
   try {
-    const { user } = await api.patch<{ user: PublicUser }>('/api/me', { prefs });
+    const { user } = await mx.updateMe({ prefs });
     setState({ me: user });
     return true;
   } catch (err) {
@@ -71,7 +72,7 @@ function ProfileCard({ me }: { me: PublicUser }) {
     }
     setBusy(true);
     try {
-      const { user } = await api.patch<{ user: PublicUser }>('/api/me', { displayName: trimmed });
+      const { user } = await mx.updateMe({ displayName: trimmed });
       setState({ me: user });
       setEditing(false);
       setError(null);
@@ -325,7 +326,6 @@ function SoundAndLook({ me }: { me: PublicUser }) {
 function AppSection() {
   const { installed, canPrompt } = useInstall();
   const updateAvailable = useApp((s) => s.updateAvailable);
-  const serverBuild = useApp((s) => s.serverBuildId);
   const [checking, setChecking] = useState(false);
   const built = new Date(__BUILT_AT__);
 
@@ -368,7 +368,7 @@ function AppSection() {
             <span className="row-sub">
               {updateAvailable
                 ? 'A newer version is ready to install.'
-                : `Built ${built.toLocaleDateString()} ${built.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${serverBuild && serverBuild !== __BUILD_ID__ && serverBuild !== 'dev' ? ' · update pending' : ''}`}
+                : `Built ${built.toLocaleDateString()} ${built.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
             </span>
           </div>
           {updateAvailable ? (
@@ -425,7 +425,7 @@ function PasswordSheet({ open, onClose }: { open: boolean; onClose: () => void }
     if (Object.keys(errs).length) return;
     setBusy(true);
     try {
-      await api.post('/api/me/password', { currentPassword: current, newPassword: next });
+      await changePassword(current, next);
       toast({ kind: 'success', title: 'Password changed', body: 'Other devices have been signed out.' });
       close();
     } catch (err) {

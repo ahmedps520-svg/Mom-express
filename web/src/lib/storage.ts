@@ -28,8 +28,8 @@ export function removeKey(key: string): void {
 
 export const keys = {
   lastUser: 'mx:last-user',
-  snapshot: (userId: number) => `mx:snapshot:${userId}`,
-  outbox: (userId: number) => `mx:outbox:${userId}`,
+  snapshot: (userId: string) => `mx:snapshot:${userId}`,
+  outbox: (userId: string) => `mx:outbox:${userId}`,
   theme: 'mx:theme',
   pushWanted: 'mx:push-wanted',
   dismissedPushCard: 'mx:dismissed-push-card',

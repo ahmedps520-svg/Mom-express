@@ -26,13 +26,13 @@ export function isFinal(status: RequestStatus): boolean {
 export type RequestAction = 'accept' | 'decline' | 'start' | 'set_eta' | 'deliver' | 'cancel' | 'edit';
 
 export interface Actor {
-  id: number;
+  id: string;
   role: Role;
 }
 
 type RequestFacts = Pick<DeliveryRequest, 'status'> & {
-  requester: { id: number };
-  runner: { id: number; displayName?: string } | null;
+  requester: { id: string };
+  runner: { id: string; displayName?: string } | null;
 };
 
 export type ActionCheck =

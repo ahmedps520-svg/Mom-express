@@ -1,3 +1,4 @@
+import { BASE } from '../config';
 import { setState } from '../store/app';
 
 // Registers the service worker and manages updates. A new version is
@@ -8,6 +9,7 @@ let registration: ServiceWorkerRegistration | null = null;
 let reloading = false;
 let userRequestedUpdate = false;
 const navigateListeners = new Set<(url: string) => void>();
+const resubscribeListeners = new Set<() => void>();
 
 export function swSupported(): boolean {
   return 'serviceWorker' in navigator;
@@ -22,7 +24,7 @@ export function getRegistration(): Promise<ServiceWorkerRegistration | null> {
 export async function registerServiceWorker(): Promise<void> {
   if (!swSupported()) return;
   try {
-    registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+    registration = await navigator.serviceWorker.register(`${BASE}sw.js`, { scope: BASE, updateViaCache: 'none' });
   } catch (err) {
     console.warn('Service worker registration failed', err);
     return;
@@ -52,6 +54,9 @@ export async function registerServiceWorker(): Promise<void> {
     if (data?.type === 'navigate' && typeof data.url === 'string' && data.url.startsWith('/')) {
       for (const fn of navigateListeners) fn(data.url);
     }
+    if (data?.type === 'push-subscription-changed') {
+      for (const fn of resubscribeListeners) fn();
+    }
   });
 
   // Look for new versions regularly and whenever the app comes back into view.
@@ -70,6 +75,12 @@ export async function registerServiceWorker(): Promise<void> {
 export function onServiceWorkerNavigate(fn: (url: string) => void): () => void {
   navigateListeners.add(fn);
   return () => navigateListeners.delete(fn);
+}
+
+/** Called when the browser replaced this device's push subscription, so it can be registered again. */
+export function onPushSubscriptionChange(fn: () => void): () => void {
+  resubscribeListeners.add(fn);
+  return () => resubscribeListeners.delete(fn);
 }
 
 /** Checks the server for a new version. Resolves to true if one is ready to install. */

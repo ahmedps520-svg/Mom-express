@@ -1,9 +1,9 @@
 // End-to-end smoke test: drives Mom (on a phone-sized screen) and the runner
-// (on a desktop-sized screen) through a full delivery against a running server,
-// checking that each change shows up live on the other screen. Run it against
-// a server with a fresh, empty database.
+// (on a desktop-sized screen) through a full delivery against a deployed copy
+// of the app, checking that each change shows up live on the other screen.
+// Run it with no requests in progress; it leaves its test requests in history.
 //
-//   BASE_URL=http://localhost:3000 MOM_USER=mom MOM_PASS=... RUNNER_USER=... RUNNER_PASS=... \
+//   BASE_URL=https://<owner>.github.io/Mom-express/ MOM_USER=mom MOM_PASS=... RUNNER_USER=... RUNNER_PASS=... \
 //     node scripts/e2e-smoke.mjs [screenshot-dir]
 //
 // Needs Playwright with Chromium installed (it isn't a project dependency).
@@ -13,7 +13,8 @@ import path from 'node:path';
 
 const { chromium, devices } = createRequire(import.meta.url)('playwright');
 
-const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
+// Pages below are opened relative to this, so it must end with a slash.
+const BASE = (process.env.BASE_URL ?? 'http://localhost:5173/').replace(/\/?$/, '/');
 const shots = process.argv[2];
 if (shots) fs.mkdirSync(shots, { recursive: true });
 
@@ -25,9 +26,15 @@ async function open(name, options) {
   const context = await browser.newContext({ ...options, baseURL: BASE });
   const page = await context.newPage();
   pages.push([name, page]);
-  // Expected: a 401 before signing in (and for the wrong-password check), and
-  // failed requests while the test deliberately takes the browser offline.
-  page.on('console', (msg) => msg.type() === 'error' && !/status of 401|ERR_INTERNET_DISCONNECTED/.test(msg.text()) && errors.push(`[${name}] ${msg.text()}`));
+  // Expected: a 400 for the wrong-password check, and failed requests while
+  // the test deliberately takes the browser offline.
+  page.on(
+    'console',
+    (msg) =>
+      msg.type() === 'error' &&
+      !/status of 400|ERR_INTERNET_DISCONNECTED|Failed to fetch|WebSocket/.test(msg.text()) &&
+      errors.push(`[${name}] ${msg.text()}`),
+  );
   page.on('pageerror', (err) => errors.push(`[${name}] ${err.message}`));
   return page;
 }
@@ -39,7 +46,7 @@ async function snap(page, name) {
 }
 
 async function signIn(page, username, password) {
-  await page.goto('/');
+  await page.goto('./');
   await page.getByLabel('Username').fill(username);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
@@ -52,7 +59,7 @@ try {
   const runner = await open('runner', { viewport: { width: 1360, height: 900 } });
 
   step('Sign-in screen');
-  await mom.goto('/');
+  await mom.goto('./');
   await mom.getByRole('button', { name: 'Sign in' }).waitFor();
   await snap(mom, '01-mom-login');
   await mom.getByRole('button', { name: 'Sign in' }).click();
@@ -68,7 +75,7 @@ try {
   await signIn(mom, process.env.MOM_USER, process.env.MOM_PASS);
   await mom.getByText('What can we bring you?').waitFor();
   await snap(mom, '02-mom-home-empty');
-  await runner.goto('/');
+  await runner.goto('./');
   await runner.getByRole('button', { name: 'Sign in' }).waitFor();
   await snap(runner, '03-runner-login-desktop');
   await signIn(runner, process.env.RUNNER_USER, process.env.RUNNER_PASS);
@@ -129,7 +136,7 @@ try {
   await snap(runner, '13-runner-after-delivery');
 
   step('Mom makes a custom request and cancels it; runner is told');
-  await mom.goto('/new');
+  await mom.goto('new');
   await mom.getByLabel('What do you need?').fill('Phone charger');
   await mom.getByRole('button', { name: 'Living room' }).click();
   await mom.getByRole('button', { name: 'Send request' }).click();
@@ -142,7 +149,7 @@ try {
   await runner.getByRole('article', { name: /Phone charger/ }).waitFor({ state: 'detached', timeout: 5000 });
 
   step('Runner declines a request with a reason; Mom is told');
-  await mom.goto('/new?quick=snack');
+  await mom.goto('new?quick=snack');
   await mom.getByRole('button', { name: 'Kitchen' }).click();
   await mom.getByRole('button', { name: 'Send request' }).click();
   await mom.getByRole('heading', { name: 'Waiting for your runner' }).waitFor();
@@ -156,7 +163,7 @@ try {
   await snap(mom, '16-mom-declined');
 
   step('History, notifications and settings');
-  await mom.goto('/history');
+  await mom.goto('history');
   await mom.getByRole('heading', { name: 'History' }).waitFor();
   await mom.locator('.history-row').first().waitFor();
   await snap(mom, '17-mom-history');
@@ -164,23 +171,23 @@ try {
   await mom.locator('.chip[aria-pressed="true"]', { hasText: 'Declined' }).waitFor();
   await mom.waitForTimeout(300);
   if ((await mom.locator('.history-row').count()) !== 1) throw new Error('Declined filter shows the wrong number of rows');
-  await mom.goto('/notifications');
+  await mom.goto('notifications');
   await mom.locator('.notif').first().waitFor();
   await snap(mom, '18-mom-notifications');
-  await mom.goto('/settings');
+  await mom.goto('settings');
   await mom.getByRole('heading', { name: 'Settings' }).waitFor();
   await snap(mom, '19-mom-settings');
-  await mom.goto('/');
+  await mom.goto('./');
   await mom.getByText('What can we bring you?').waitFor();
   await snap(mom, '20-mom-home-with-history');
-  await runner.goto('/history');
+  await runner.goto('history');
   await runner.locator('.history-row').first().waitFor();
   await snap(runner, '21-runner-history');
 
   step('Offline: a new request is kept on the device, clearly marked, and sent on reconnect');
-  await runner.goto('/');
+  await runner.goto('./');
   await runner.getByRole('heading', { name: /^New requests/ }).waitFor();
-  await mom.goto('/');
+  await mom.goto('./');
   await mom.getByText('What can we bring you?').waitFor();
   await mom.context().setOffline(true);
   await mom.locator('.topbar .conn-dot.offline, .topbar .conn-dot.reconnecting').first().waitFor({ timeout: 10000 });
