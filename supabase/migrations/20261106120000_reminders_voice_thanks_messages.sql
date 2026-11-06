@@ -143,7 +143,7 @@ create policy momexpress_voice_read on storage.objects for select to authenticat
 -- The request function gains the optional voice clip, so its old form goes.
 drop function if exists public.mx_create_request(text, text, text, text, text, text, text);
 
-create function public.mx_create_request(
+create or replace function public.mx_create_request(
   p_client_request_id text,
   p_title text,
   p_location text,
