@@ -1,4 +1,4 @@
-import { Coffee, Cookie, GlassWater, HandHelping, PenLine, Pill, type LucideIcon } from 'lucide-react';
+import { Coffee, Cookie, GlassWater, HandHelping, Mic, PenLine, Pill, type LucideIcon } from 'lucide-react';
 import type { DeliveryRequest, Priority, QuickType, RequestStatus } from '../../../shared/types.js';
 import { startOfDay } from '../lib/format';
 
@@ -70,8 +70,12 @@ export const ITEMS: Item[] = [
   { key: 'other', label: 'شيء آخر', title: '', quickType: null, priority: 'normal', icon: PenLine, tone: 'default' },
 ];
 
+/** A request Mom recorded instead of choosing a button. */
+export const VOICE_ITEM: Item = { key: 'voice', label: 'رسالة صوتية', title: 'رسالة صوتية', quickType: null, priority: 'normal', icon: Mic, tone: 'default' };
+
 /** The icon for a request, from its shortcut or its words. */
-export function itemFor(r: Pick<DeliveryRequest, 'title' | 'quickType'>): Item {
+export function itemFor(r: Pick<DeliveryRequest, 'title' | 'quickType'> & { voice?: DeliveryRequest['voice'] }): Item {
+  if (r.voice) return VOICE_ITEM;
   return (
     ITEMS.find((i) => i.quickType && i.quickType === r.quickType) ??
     ITEMS.find((i) => i.key !== 'other' && i.title === r.title) ??
@@ -95,6 +99,8 @@ export function updateTitle(type: string, r: DeliveryRequest | undefined): strin
       return `${who} لا يستطيع إحضاره الآن`;
     case 'cancelled':
       return 'أُلغي الطلب';
+    case 'message':
+      return `رسالة من ${who}`;
     default:
       return null;
   }

@@ -1,0 +1,27 @@
+# Free Supabase projects are paused after about a week without use, and the
+# app would stop working until someone unpauses it. Twice a week this calls a
+# harmless database function (public.mx_ping, which only answers "ok") so the
+# project always counts as in use.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: '23 7 * * 1,4' # Mondays and Thursdays, 07:23 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the database
+        env:
+          # The same public address and key the app uses (see vite.config.ts).
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://lmllhebtzizohtimulfs.supabase.co' }}
+          SUPABASE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_xq2Hx_XCa_k7D3E4jUMrrg_-5XDuC3x' }}
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-delay 20 --retry-all-errors \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/mx_ping" \
+            -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d '{}'
+          echo

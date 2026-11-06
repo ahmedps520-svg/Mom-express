@@ -211,3 +211,71 @@ export function ConfirmSheet({
     />
   );
 }
+
+/** Ready-made messages for Mom, in Arabic since that's what her app speaks. */
+const QUICK_MESSAGES = ['دقيقة وأجي', 'في الطريق إليك', 'تأخرت شوي، جاي', 'ما لقيته، أجيب بديل؟'];
+
+/** The runner sends Mom a short message: one tap for a ready-made one, or type it. */
+export function MessageSheet({
+  open,
+  onClose,
+  onSend,
+  busy,
+  mom,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSend: (text: string) => void;
+  busy: boolean;
+  mom: string;
+}) {
+  const [text, setText] = useState('');
+  useEffect(() => {
+    if (open) setText('');
+  }, [open]);
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={`Message ${mom}`}
+      description="She sees it straight away on her screen. A message ending in ؟ gets yes/no buttons."
+      busy={busy}
+      actions={
+        <>
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
+            Go back
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => onSend(text.trim())} disabled={busy || !text.trim()}>
+            {busy ? 'Sending…' : 'Send'}
+          </button>
+        </>
+      }
+    >
+      <div className="chip-row quick-messages" dir="rtl">
+        {QUICK_MESSAGES.map((m) => (
+          <button key={m} type="button" className="chip" disabled={busy} onClick={() => onSend(m)}>
+            {m}
+          </button>
+        ))}
+      </div>
+      <div className="field">
+        <label className="label" htmlFor="message-input">
+          Or write your own
+        </label>
+        <input
+          id="message-input"
+          className="input"
+          dir="auto"
+          maxLength={120}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && text.trim() && !busy) onSend(text.trim());
+          }}
+          placeholder="اكتب رسالة…"
+        />
+      </div>
+    </Sheet>
+  );
+}

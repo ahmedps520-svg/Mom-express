@@ -23,6 +23,9 @@ export interface NewRequest {
   priority: DeliveryRequest['priority'];
   notes: string;
   quickType: DeliveryRequest['quickType'];
+  /** A recorded voice message, already uploaded (see lib/voice.ts). */
+  voicePath?: string;
+  voiceSeconds?: number;
 }
 
 export type RequestChanges = Partial<Pick<DeliveryRequest, 'title' | 'description' | 'location' | 'priority' | 'notes'>>;
@@ -51,6 +54,9 @@ export const mx = {
       p_description: r.description,
       p_notes: r.notes,
       p_quick_type: r.quickType,
+      // Only sent with a recording, so ordinary requests also work with a
+      // database that doesn't have voice messages yet.
+      ...(r.voicePath ? { p_voice_path: r.voicePath, p_voice_seconds: r.voiceSeconds } : {}),
     }),
   editRequest: (request: DeliveryRequest, changes: RequestChanges) =>
     rpc<MutationResponse>('mx_edit_request', {
@@ -70,6 +76,8 @@ export const mx = {
   setEta: (request: DeliveryRequest, etaMinutes: number) => rpc<MutationResponse>('mx_set_eta', { p_id: request.id, p_eta_minutes: etaMinutes }),
   deliver: (request: DeliveryRequest) => rpc<MutationResponse>('mx_deliver', { p_id: request.id, p_seen_details_at: seen(request) }),
   cancel: (request: DeliveryRequest, reason?: string) => rpc<MutationResponse>('mx_cancel', { p_id: request.id, p_reason: reason ?? null }),
+  thank: (request: DeliveryRequest) => rpc<MutationResponse>('mx_thank', { p_id: request.id }),
+  sendMessage: (request: DeliveryRequest, text: string) => rpc<MutationResponse>('mx_send_message', { p_id: request.id, p_text: text }),
 
   markRead: (target: { ids?: number[]; requestId?: number; all?: true }) =>
     rpc<{ ids: number[] | 'all'; unreadCount: number }>('mx_mark_read', {

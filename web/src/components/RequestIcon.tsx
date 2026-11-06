@@ -4,6 +4,7 @@ import {
   Cookie,
   GlassWater,
   HandHelping,
+  Mic,
   Package,
   Pill,
   Shirt,
@@ -40,13 +41,16 @@ const KEYWORDS: [RegExp, LucideIcon, Tone][] = [
   [/بطانية|ملابس|جاكيت|شال/, Shirt, 'default'],
 ];
 
-export function iconFor(request: Pick<DeliveryRequest, 'quickType' | 'title'>): { icon: LucideIcon; tone: Tone } {
+type IconFacts = Pick<DeliveryRequest, 'quickType' | 'title'> & { voice?: DeliveryRequest['voice'] };
+
+export function iconFor(request: IconFacts): { icon: LucideIcon; tone: Tone } {
+  if (request.voice) return { icon: Mic, tone: 'default' };
   if (request.quickType) return BY_TYPE[request.quickType];
   for (const [re, icon, tone] of KEYWORDS) if (re.test(request.title)) return { icon, tone };
   return { icon: Package, tone: 'default' };
 }
 
-export function RequestIcon({ request, small = false }: { request: Pick<DeliveryRequest, 'quickType' | 'title'>; small?: boolean }) {
+export function RequestIcon({ request, small = false }: { request: IconFacts; small?: boolean }) {
   const { icon: Icon, tone } = iconFor(request);
   return (
     <span className={`bubble tone-${tone}${small ? ' bubble-sm' : ''}`} aria-hidden="true">

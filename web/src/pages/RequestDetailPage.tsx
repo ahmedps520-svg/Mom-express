@@ -29,6 +29,7 @@ import { RunnerActions } from '../components/RequestActions';
 import { RequestIcon } from '../components/RequestIcon';
 import { CardSkeleton } from '../components/Skeletons';
 import { StatusPill } from '../components/StatusPill';
+import { VoicePlayer } from '../components/VoicePlayer';
 import { EVENT_ICONS, describeEvent } from '../lib/events';
 import { firstName, formatDateTime, formatDuration, formatTime, relativeTime } from '../lib/format';
 import { useBack, usePrevious, useServerNow, useTitle } from '../lib/hooks';
@@ -194,6 +195,11 @@ export function RequestDetailPage({ me }: { me: PublicUser }) {
             </span>
           </div>
         </div>
+        {request.voice && (
+          <div className="detail-voice">
+            <VoicePlayer voice={request.voice} className="btn btn-primary voice-btn" />
+          </div>
+        )}
         {request.description && <p className="detail-description">{request.description}</p>}
         <dl className="detail-grid">
           <div>
@@ -231,6 +237,7 @@ export function RequestDetailPage({ me }: { me: PublicUser }) {
           </div>
         )}
         {request.detailsUpdatedAt && <p className="subtle edited-note">Details updated {relativeTime(request.detailsUpdatedAt, now)}</p>}
+        {request.thankedAt && <p className="thanked-note">❤️ {firstName(request.requester.displayName)} said thanks</p>}
       </section>
 
       <section className={`detail-actions${active ? ' sticky-actions' : ''}`}>

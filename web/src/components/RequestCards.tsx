@@ -1,4 +1,4 @@
-import { ChevronRight, MapPin, StickyNote, User } from 'lucide-react';
+import { ChevronRight, Heart, MapPin, MessageCircle, StickyNote, User } from 'lucide-react';
 import { Link } from 'react-router';
 import type { DeliveryRequest, PublicUser } from '../../../shared/types.js';
 import { finishedAt } from '../store/app';
@@ -9,6 +9,7 @@ import { PriorityBadge } from './PriorityBadge';
 import { RequestIcon } from './RequestIcon';
 import { RunnerActions } from './RequestActions';
 import { StatusPill } from './StatusPill';
+import { VoicePlayer } from './VoicePlayer';
 
 /** A request on the runner's dashboard, with the next action right on the card. */
 export function RunnerRequestCard({ request, me, fresh }: { request: DeliveryRequest; me: PublicUser; fresh: boolean }) {
@@ -52,6 +53,14 @@ export function RunnerRequestCard({ request, me, fresh }: { request: DeliveryReq
             </p>
           </div>
         )}
+        {request.lastMessage && (
+          <div className="req-msg">
+            <MessageCircle aria-hidden="true" />
+            <p>
+              <strong>{request.lastMessage.from === me.id ? 'You' : firstName(request.requester.displayName)}:</strong> {request.lastMessage.text}
+            </p>
+          </div>
+        )}
         {request.status !== 'pending' && (
           <div className="req-card-foot">
             <EtaText request={request} viewer="runner" />
@@ -63,6 +72,7 @@ export function RunnerRequestCard({ request, me, fresh }: { request: DeliveryReq
           </div>
         )}
       </Link>
+      {request.voice && <VoicePlayer voice={request.voice} />}
       <RunnerActions request={request} me={me} compact />
     </article>
   );
@@ -104,7 +114,14 @@ export function HistoryRow({ request, me }: { request: DeliveryRequest; me: Publ
             {dayLabel(done)}, {formatTime(done)}
           </span>
         </div>
-        <span className="row-sub">{outcome(request, me)}</span>
+        <span className="row-sub">
+          {outcome(request, me)}
+          {request.thankedAt && (
+            <span className="thanked">
+              <Heart aria-hidden="true" /> {firstName(request.requester.displayName)} said thanks
+            </span>
+          )}
+        </span>
       </div>
       <ChevronRight className="chev" aria-hidden="true" />
     </Link>

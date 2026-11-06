@@ -801,3 +801,156 @@
 .m-active .m-card-status {
   color: var(--text);
 }
+
+/* ------------------------------------------------------------ voice */
+
+.m-voice-tile {
+  flex-direction: row;
+  gap: 0.6em;
+  min-height: 4.2em;
+  background: var(--gradient-strong);
+  color: #fff;
+  box-shadow: var(--brand-glow);
+}
+.m-voice-tile svg {
+  width: 1.7em;
+  height: 1.7em;
+}
+
+.m-record {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+  padding: 1.5em 0 0.5em;
+  text-align: center;
+}
+
+.m-mic {
+  display: grid;
+  place-items: center;
+  width: 7.5em;
+  height: 7.5em;
+  border-radius: 50%;
+  background: var(--gradient-strong);
+  color: #fff;
+  box-shadow: var(--brand-glow);
+  transition: transform 0.15s var(--ease);
+}
+.m-mic svg {
+  width: 3em;
+  height: 3em;
+}
+.m-mic:active {
+  transform: scale(0.95);
+}
+.m-mic.on {
+  background: var(--danger);
+  animation: m-recording 1.4s ease-in-out infinite;
+}
+.m-mic.on svg {
+  width: 2.4em;
+  height: 2.4em;
+  fill: currentColor;
+}
+
+@keyframes m-recording {
+  50% {
+    box-shadow: 0 0 0 14px color-mix(in srgb, var(--danger) 22%, transparent);
+  }
+}
+
+.m-record-time {
+  font-size: 2em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--danger);
+}
+
+.m-record-hint {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+.m-recorded {
+  align-items: flex-start;
+}
+
+/* ------------------------------------------------------------ messages and thanks */
+
+.m-card-msg {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  margin-top: 0.15em;
+  color: var(--accepted);
+  font-weight: 800;
+}
+.m-card-msg svg {
+  width: 1.05em;
+  height: 1.05em;
+}
+
+.m-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.m-msg {
+  align-self: flex-start;
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+  padding: 0.55em 0.9em;
+  border-radius: 1.2em;
+  border-start-start-radius: 0.4em;
+  background: var(--accepted-bg);
+  color: var(--text);
+}
+.m-msg.mine {
+  align-self: flex-end;
+  border-start-start-radius: 1.2em;
+  border-start-end-radius: 0.4em;
+  background: var(--surface-3);
+}
+.m-msg-from {
+  font-size: 0.8em;
+  font-weight: 800;
+  color: var(--accepted);
+}
+.m-msg-text {
+  font-size: 1.1em;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.m-msg-time {
+  font-size: 0.75em;
+  color: var(--text-3);
+}
+
+.m-answer {
+  display: flex;
+  gap: 0.6em;
+}
+.m-answer .m-btn {
+  flex: 1;
+  font-size: 1.15em;
+}
+
+.m-btn-thanks {
+  background: linear-gradient(135deg, #ff4f8b 0%, #e5367a 100%);
+}
+
+.m-thanked {
+  text-align: center;
+  font-size: 1.1em;
+  font-weight: 800;
+  color: var(--brand-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-mic.on {
+    animation: none;
+  }
+}

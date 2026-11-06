@@ -624,7 +624,13 @@
 
 .action-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+}
+
+/* In narrow cards the main action drops to its own line rather than overflow. */
+.action-row .btn.grow {
+  flex: 1 1 auto;
 }
 
 .action-row .btn:not(.grow) {

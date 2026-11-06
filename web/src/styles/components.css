@@ -1245,3 +1245,64 @@ dialog.sheet::backdrop {
     transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(var(--r)) scale(1);
   }
 }
+
+/* ------------------------------------------------------------ voice, messages, thanks (runner) */
+
+.voice-btn {
+  align-self: flex-start;
+  margin: 0 14px 10px;
+}
+.detail-voice .voice-btn {
+  margin: 14px 0 0;
+}
+
+.req-msg {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 14px 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accepted-bg);
+  color: var(--text);
+  font-size: 14px;
+}
+.req-msg svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: var(--accepted);
+}
+.req-msg p {
+  unicode-bidi: plaintext;
+}
+
+.msg-btn {
+  flex: 0 0 auto;
+  padding-inline: 12px;
+}
+
+.quick-messages {
+  margin-bottom: 14px;
+}
+
+.thanked,
+.thanked-note {
+  color: var(--brand-strong);
+  font-weight: 650;
+}
+.thanked {
+  display: block;
+  white-space: nowrap;
+}
+.thanked svg {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  vertical-align: -2px;
+  fill: currentColor;
+}
+.thanked-note {
+  margin-top: 10px;
+}

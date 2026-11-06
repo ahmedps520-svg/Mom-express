@@ -5,7 +5,8 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
 // Runs the real MomExpress migration in an in-memory Postgres (PGlite), with
 // small stand-ins for the Supabase pieces it relies on: the auth schema, the
-// API roles, and pg_net (whose HTTP calls are recorded instead of sent).
+// API roles, storage, pg_cron (jobs are recorded, not run) and pg_net (whose
+// HTTP calls are recorded instead of sent).
 const SUPABASE_STANDINS = `
   create role anon nologin;
   create role authenticated nologin;
@@ -37,6 +38,27 @@ const SUPABASE_STANDINS = `
     headers jsonb default '{}', timeout_milliseconds integer default 5000) returns bigint
   language sql as $$ insert into net.calls (url, body) values (url, body) returning id $$;
 
+  create schema storage;
+  create table storage.buckets (id text primary key, name text, public boolean default false,
+    file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets (id),
+    name text, owner uuid default auth.uid(), unique (bucket_id, name));
+  alter table storage.objects enable row level security;
+  create function storage.foldername(name text) returns text[] language plpgsql immutable as $$
+  declare parts text[] := string_to_array(name, '/');
+  begin
+    return parts[1:array_length(parts, 1) - 1];
+  end $$;
+  grant usage on schema storage to anon, authenticated, service_role;
+  grant select, insert on storage.objects to authenticated;
+
+  create schema cron;
+  create table cron.job (jobid serial primary key, jobname text unique, schedule text, command text);
+  create function cron.schedule(job_name text, schedule text, command text) returns bigint language sql as $$
+    insert into cron.job (jobname, schedule, command) values (job_name, schedule, command)
+    on conflict (jobname) do update set schedule = excluded.schedule, command = excluded.command
+    returning jobid $$;
+
   create publication supabase_realtime;
 `;
 
@@ -54,7 +76,7 @@ export async function createTestDb() {
     const sql = fs
       .readFileSync(path.join(migrationDir, file), 'utf8')
       // Provided by the stand-ins above.
-      .replace(/^create extension if not exists (pgcrypto|pg_net)[^\n]*$/gm, '');
+      .replace(/^create extension if not exists (pgcrypto|pg_net|pg_cron)[^\n]*$/gm, '');
     await db.exec(sql);
   }
 

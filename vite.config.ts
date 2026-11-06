@@ -72,6 +72,8 @@ function securityPolicy(): Plugin {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
+    // Voice messages: played from Supabase storage, or from the recording before it's sent.
+    `media-src 'self' blob: https://${supabaseHost}`,
     "worker-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",

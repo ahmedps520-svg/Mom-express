@@ -74,9 +74,6 @@ export const QUICK_REQUESTS: QuickRequestTemplate[] = [
 
 export const ETA_PRESETS = [2, 5, 10, 15, 20, 30];
 
-/** An ETA change smaller than this is not worth a separate notification. */
-export const SIGNIFICANT_ETA_CHANGE_MS = 2 * 60_000;
-
 export interface NotificationCategory {
   type: NotificationType;
   label: string;
@@ -88,7 +85,7 @@ export const NOTIFICATION_CATEGORIES: Record<Role, NotificationCategory[]> = {
   mom: [
     { type: 'accepted', label: 'Request accepted', description: 'When your runner takes a request.', defaultPush: true },
     { type: 'started', label: 'On the way', description: 'When your delivery sets off.', defaultPush: true },
-    { type: 'eta_updated', label: 'ETA changes', description: 'When the estimated arrival changes noticeably.', defaultPush: true },
+    { type: 'eta_updated', label: 'ETA changes', description: 'Whenever the estimated arrival changes.', defaultPush: true },
     { type: 'delivered', label: 'Delivered', description: 'When your request arrives.', defaultPush: true },
     { type: 'declined', label: 'Declined', description: 'When a request can’t be taken.', defaultPush: true },
     { type: 'cancelled', label: 'Cancelled', description: 'When your runner can’t finish a delivery.', defaultPush: true },

@@ -538,6 +538,11 @@ function handleRequestUpdate(request: DeliveryRequest, event: RequestEvent | nul
   if (!me || !event || event.actor?.id === me.id) return;
 
   const sound = me.prefs.sound;
+  if (event.type === 'message' || event.type === 'thanked') {
+    if (sound) playChime('update');
+    vibrate([120, 60, 120]);
+    return;
+  }
   if (me.role === 'runner') {
     if (event.type === 'created') {
       markFresh(request.id);
@@ -561,6 +566,13 @@ function onNotification(notification: AppNotification): void {
   setState((s) => ({ notifications: mergeNotifications(s.notifications, [notification]) }));
   void refreshUnreadCount();
   announce(notification);
+  // A reminder is the database nudging about a request nobody has accepted yet.
+  const me = getState().me;
+  if (notification.type === 'reminder' && me?.role === 'runner') {
+    const urgent = notification.title.includes('urgent');
+    if (me.prefs.sound) playChime(urgent ? 'urgent' : 'new');
+    vibrate(urgent ? [200, 80, 200, 80, 200] : [140, 60, 140]);
+  }
 }
 
 /** The app path being shown, without the base path the app is served from. */
@@ -578,13 +590,19 @@ function announce(notification: AppNotification): void {
   if (notification.requestId && path === `/requests/${notification.requestId}`) return;
   // On the dashboard the new card already arrives with a chime and a highlight.
   if (notification.type === 'new_request' && path === '/') return;
-  const kind = notification.type === 'declined' || notification.type === 'cancelled' ? 'warning' : notification.type === 'delivered' ? 'success' : 'info';
+  const kind =
+    notification.type === 'declined' || notification.type === 'cancelled' || notification.type === 'reminder'
+      ? 'warning'
+      : notification.type === 'delivered' || notification.type === 'thanks'
+        ? 'success'
+        : 'info';
   const view = (label: string) => (notification.requestId ? { label, run: () => go(`/requests/${notification.requestId}`) } : undefined);
   if (getState().me?.role === 'mom') {
     // Mom's app is in Arabic, whatever language the notification was written in.
     const request = notification.requestId ? getState().requests[notification.requestId] : undefined;
     const title = updateTitle(notification.type, request);
-    if (title) toast({ kind, title, body: request ? `«${request.title}»` : undefined, action: view('عرض') });
+    const body = notification.type === 'message' ? notification.body : request ? `«${request.title}»` : undefined;
+    if (title) toast({ kind, title, body, action: view('عرض') });
     return;
   }
   toast({ kind, title: notification.title, body: notification.body, action: view('View') });

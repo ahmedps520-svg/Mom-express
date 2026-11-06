@@ -7,8 +7,11 @@ import {
   CheckCheck,
   CircleCheck,
   CircleX,
+  Clock,
+  Heart,
   Inbox,
   LoaderCircle,
+  MessageCircle,
   Pencil,
   Send,
   Share,
@@ -38,6 +41,9 @@ const ICONS: Record<NotificationType, LucideIcon> = {
   declined: CircleX,
   cancelled: Ban,
   details_updated: Pencil,
+  reminder: Clock,
+  thanks: Heart,
+  message: MessageCircle,
   test: Bell,
 };
 

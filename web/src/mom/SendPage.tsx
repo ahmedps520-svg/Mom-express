@@ -1,4 +1,4 @@
-import { ArrowRight, Check, LoaderCircle, Send, TriangleAlert } from 'lucide-react';
+import { ArrowRight, LoaderCircle, Send, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { isActive } from '../../../shared/lifecycle.js';
@@ -8,7 +8,8 @@ import { newClientRequestId } from '../lib/id';
 import { createRequest, loadRequestDetail, queueRequest } from '../lib/sync';
 import { useApp } from '../store/app';
 import { toast } from '../store/toasts';
-import { ITEMS, itemFor, PLACES } from './ar';
+import { ITEMS, itemFor } from './ar';
+import { PlacePicker } from './PlacePicker';
 import { useMomTitle } from './useMomTitle';
 
 /**
@@ -28,8 +29,6 @@ export function SendPage({ me }: { me: PublicUser }) {
 
   const [title, setTitle] = useState(again?.title ?? item?.title ?? '');
   const [place, setPlace] = useState(again?.location ?? me.prefs.lastLocation ?? '');
-  const [otherPlace, setOtherPlace] = useState(() => (place && !PLACES.includes(place) ? place : ''));
-  const [typingPlace, setTypingPlace] = useState(() => Boolean(place && !PLACES.includes(place)));
   const [urgent, setUrgent] = useState(again?.priority === 'urgent');
   const [note, setNote] = useState(again?.notes ?? '');
   const [showNote, setShowNote] = useState(Boolean(again?.notes));
@@ -51,10 +50,6 @@ export function SendPage({ me }: { me: PublicUser }) {
     setNote(again.notes);
     setShowNote(Boolean(again.notes));
     setUrgent(again.priority === 'urgent');
-    if (!PLACES.includes(again.location)) {
-      setOtherPlace(again.location);
-      setTypingPlace(true);
-    }
   }, [again]);
 
   if (!shown) {
@@ -67,7 +62,7 @@ export function SendPage({ me }: { me: PublicUser }) {
     );
   }
 
-  const where = (typingPlace ? otherPlace : place).trim();
+  const where = place.trim();
   const what = title.trim();
   const sameActive = Object.values(requests).find((r) => isActive(r.status) && r.title === what);
 
@@ -145,45 +140,15 @@ export function SendPage({ me }: { me: PublicUser }) {
         )}
       </div>
 
-      <h2 className="m-q">أين أنتِ؟</h2>
-      <div className="m-places" role="radiogroup" aria-label="أين أنتِ؟">
-        {PLACES.map((p) => (
-          <button
-            key={p}
-            type="button"
-            role="radio"
-            aria-checked={!typingPlace && place === p}
-            className="m-choice"
-            onClick={() => {
-              setPlace(p);
-              setTypingPlace(false);
-              setProblem(null);
-            }}
-          >
-            {!typingPlace && place === p && <Check aria-hidden="true" />} {p}
-          </button>
-        ))}
-        <button
-          type="button"
-          role="radio"
-          aria-checked={typingPlace}
-          className="m-choice"
-          onClick={() => setTypingPlace(true)}
-        >
-          {typingPlace && <Check aria-hidden="true" />} مكان آخر
-        </button>
-      </div>
-      {typingPlace && (
-        <input
-          className="m-input"
-          aria-label="اكتبي المكان"
-          placeholder="اكتبي المكان…"
-          maxLength={40}
-          value={otherPlace}
-          autoFocus={!custom}
-          onChange={(e) => setOtherPlace(e.target.value)}
-        />
-      )}
+      <PlacePicker
+        key={again?.id ?? 'new'}
+        value={place}
+        focusOther={!custom}
+        onChange={(p) => {
+          setPlace(p);
+          setProblem(null);
+        }}
+      />
 
       <div className="m-extras">
         <button type="button" className="m-toggle m-urgent" aria-pressed={urgent} onClick={() => setUrgent((u) => !u)}>

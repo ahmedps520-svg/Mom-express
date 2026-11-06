@@ -67,7 +67,7 @@ export function MomHistory() {
                 <button
                   type="button"
                   className="m-again"
-                  onClick={() => navigate(`/send/again?again=${r.id}`)}
+                  onClick={() => navigate(r.voice ? '/voice' : `/send/again?again=${r.id}`)}
                   aria-label={`اطلبي ${r.title} مرة أخرى`}
                 >
                   <RotateCcw aria-hidden="true" />

@@ -1,4 +1,4 @@
-import { Ban, Bike, CircleCheck, CircleX, Pencil, Send, ThumbsUp, Timer, type LucideIcon } from 'lucide-react';
+import { Ban, Bike, CircleCheck, CircleX, Heart, MessageCircle, Pencil, Send, ThumbsUp, Timer, type LucideIcon } from 'lucide-react';
 import type { PublicUser, RequestEvent } from '../../../shared/types.js';
 import { firstName, formatTime } from './format';
 
@@ -11,6 +11,8 @@ export const EVENT_ICONS: Record<RequestEvent['type'], LucideIcon> = {
   delivered: CircleCheck,
   cancelled: Ban,
   edited: Pencil,
+  thanked: Heart,
+  message: MessageCircle,
 };
 
 /** A short sentence for a request history entry, e.g. "Sam accepted (ETA 7:42 PM)". */
@@ -38,5 +40,9 @@ export function describeEvent(e: RequestEvent, me: PublicUser): string {
       const names: Record<string, string> = { title: 'title', description: 'details', location: 'location', priority: 'priority', notes: 'notes' };
       return `${who} updated the ${changes.map((c) => names[c] ?? c).join(', ') || 'details'}`;
     }
+    case 'thanked':
+      return `${who} said thanks ❤️`;
+    case 'message':
+      return `${who}: “${String(e.data.text ?? '')}”`;
   }
 }

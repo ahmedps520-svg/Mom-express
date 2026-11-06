@@ -1,4 +1,4 @@
-import { BellRing, ChevronLeft, CloudOff, X } from 'lucide-react';
+import { BellRing, ChevronLeft, CloudOff, MessageCircle, Mic, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import type { DeliveryRequest } from '../../../shared/types.js';
@@ -6,6 +6,7 @@ import { useServerNow } from '../lib/hooks';
 import { keys, readJson, writeJson } from '../lib/storage';
 import { discardOutboxItem, retryOutboxItem } from '../lib/sync';
 import { usePush } from '../lib/usePush';
+import { canRecord } from '../lib/voice';
 import { selectActive, useApp } from '../store/app';
 import { etaText, greeting, ITEMS, itemFor, runnerName } from './ar';
 import { useMomTitle } from './useMomTitle';
@@ -28,9 +29,10 @@ export function statusLine(r: DeliveryRequest): string {
   }
 }
 
-function ActiveCard({ request, now }: { request: DeliveryRequest; now: number }) {
+function ActiveCard({ request, now, myId }: { request: DeliveryRequest; now: number; myId: string }) {
   const item = itemFor(request);
   const eta = etaText(request, now);
+  const message = request.lastMessage && request.lastMessage.from !== myId ? request.lastMessage.text : null;
   return (
     <Link to={`/requests/${request.id}`} className={`m-card m-active status-${request.status}`}>
       <span className={`m-icon tone-${item.tone}`} aria-hidden="true">
@@ -40,6 +42,11 @@ function ActiveCard({ request, now }: { request: DeliveryRequest; now: number })
         <span className="m-card-title">{request.title}</span>
         <span className="m-card-status">{statusLine(request)}</span>
         {eta && <span className="m-card-eta">{eta}</span>}
+        {message && (
+          <span className="m-card-msg">
+            <MessageCircle aria-hidden="true" /> {message}
+          </span>
+        )}
       </span>
       <ChevronLeft className="m-chev" aria-hidden="true" />
     </Link>
@@ -115,6 +122,7 @@ function PushCard() {
 export function MomHome() {
   useMomTitle('الرئيسية');
   const requests = useApp((s) => s.requests);
+  const myId = useApp((s) => s.me?.id ?? '');
   const loaded = useApp((s) => s.dataLoaded);
   const now = useServerNow(5000);
   const active = selectActive(requests).sort((a, b) => b.id - a.id);
@@ -126,11 +134,17 @@ export function MomHome() {
       {active.length > 0 && (
         <section className="m-section" aria-label="طلباتك الآن">
           {active.map((r) => (
-            <ActiveCard key={r.id} request={r} now={now} />
+            <ActiveCard key={r.id} request={r} now={now} myId={myId} />
           ))}
         </section>
       )}
       <h2 className="m-ask">ماذا تحتاجين؟</h2>
+      {canRecord() && (
+        <Link to="/voice" className="m-tile m-voice-tile">
+          <Mic aria-hidden="true" />
+          <span>قولي ما تحتاجينه</span>
+        </Link>
+      )}
       <div className="m-grid">
         {ITEMS.map((item) => (
           <Link key={item.key} to={`/send/${item.key}`} className={`m-tile tone-${item.tone}`}>

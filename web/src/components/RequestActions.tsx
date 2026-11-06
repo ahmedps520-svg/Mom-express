@@ -1,4 +1,4 @@
-import { Ban, Bike, Check, Clock, LoaderCircle, PackageCheck, X } from 'lucide-react';
+import { Ban, Bike, Check, Clock, LoaderCircle, MessageCircle, PackageCheck, X } from 'lucide-react';
 import { useState } from 'react';
 import { can } from '../../../shared/lifecycle.js';
 import type { DeliveryRequest, MutationResponse, PublicUser } from '../../../shared/types.js';
@@ -6,10 +6,10 @@ import { mx } from '../api/mx';
 import { runRequestAction } from '../lib/actions';
 import { firstName } from '../lib/format';
 import { serverNow } from '../store/app';
-import { EtaSheet, ReasonSheet } from './ActionSheets';
+import { EtaSheet, MessageSheet, ReasonSheet } from './ActionSheets';
 
-type Busy = null | 'accept' | 'decline' | 'start' | 'eta' | 'deliver' | 'cancel';
-type Open = null | 'accept' | 'decline' | 'eta' | 'start-eta' | 'cancel';
+type Busy = null | 'accept' | 'decline' | 'start' | 'eta' | 'deliver' | 'cancel' | 'message';
+type Open = null | 'accept' | 'decline' | 'eta' | 'start-eta' | 'cancel' | 'message';
 
 function Spinner() {
   return <LoaderCircle className="spin" aria-hidden="true" />;
@@ -41,10 +41,33 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
       body: `${mom} can see you’re on it${etaMinutes ? ` · ETA ${etaMinutes} min` : ''}.`,
     });
 
+  const messageButton = (
+    <button
+      type="button"
+      className={`btn btn-secondary ${size} msg-btn`}
+      onClick={() => setOpen('message')}
+      disabled={busy !== null}
+      aria-label={`Message ${mom}`}
+      title={`Message ${mom}`}
+    >
+      {busy === 'message' ? <Spinner /> : <MessageCircle />}
+    </button>
+  );
+  const messageSheet = (
+    <MessageSheet
+      open={open === 'message'}
+      onClose={() => setOpen(null)}
+      busy={busy === 'message'}
+      mom={mom}
+      onSend={(text) => void run('message', () => mx.sendMessage(request, text), { title: 'Message sent', body: `“${text}”` })}
+    />
+  );
+
   if (request.status === 'pending' && can('accept', request, actor)) {
     return (
       <>
         <div className={`action-row${compact ? ' compact' : ''}`}>
+          {messageButton}
           <button type="button" className={`btn btn-secondary ${size}`} onClick={() => setOpen('decline')} disabled={busy !== null}>
             <X /> Decline
           </button>
@@ -74,6 +97,7 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
             void run('decline', () => mx.decline(request, reason || undefined), { title: 'Request declined', body: `${mom} has been told.` })
           }
         />
+        {messageSheet}
       </>
     );
   }
@@ -89,6 +113,7 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
   return (
     <>
       <div className={`action-row${compact ? ' compact' : ''}`}>
+        {messageButton}
         <button type="button" className={`btn btn-secondary ${size}`} onClick={() => setOpen('eta')} disabled={busy !== null}>
           {busy === 'eta' ? <Spinner /> : <Clock />} {request.etaAt ? 'Update ETA' : 'Set ETA'}
         </button>
@@ -152,6 +177,7 @@ export function RunnerActions({ request, me, compact = false }: { request: Deliv
           void run('cancel', () => mx.cancel(request, reason || undefined), { title: 'Delivery cancelled', body: `${mom} has been told.` })
         }
       />
+      {messageSheet}
     </>
   );
 }

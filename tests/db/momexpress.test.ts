@@ -311,27 +311,29 @@ describe('notifications', () => {
     expect((await notificationsOf(runner))[0]).toMatchObject({ type: 'new_request', title: 'Urgent request from Mom', body: 'Glass of water · Bedroom' });
 
     await t.rpc(runner, 'mx_accept', { p_id: r.id, p_eta_minutes: 5 });
-    await t.rpc(runner, 'mx_set_eta', { p_id: r.id, p_eta_minutes: 6 }); // small change: no notification
-    await t.rpc(runner, 'mx_set_eta', { p_id: r.id, p_eta_minutes: 15 }); // big change: notify
+    await t.rpc(runner, 'mx_set_eta', { p_id: r.id, p_eta_minutes: 6 }); // every change is sent, even a small one
+    await t.rpc(runner, 'mx_set_eta', { p_id: r.id, p_eta_minutes: 15 });
     await t.rpc(runner, 'mx_start', { p_id: r.id });
     await t.rpc(runner, 'mx_deliver', { p_id: r.id });
 
     const momList = await t.rpc(mom, 'mx_notifications');
-    expect(momList.notifications.map((n: { type: string }) => n.type)).toEqual(['delivered', 'started', 'eta_updated', 'accepted', 'submitted']);
-    expect(momList.unreadCount).toBe(5);
+    expect(momList.notifications.map((n: { type: string }) => n.type)).toEqual(['delivered', 'started', 'eta_updated', 'eta_updated', 'accepted', 'submitted']);
+    expect(momList.unreadCount).toBe(6);
     // Mom's app is in Arabic, and so is everything she's told.
     expect(momList.notifications.map((n: { title: string }) => n.title)).toEqual([
       'وصل طلبك ✓',
       'طلبك في الطريق إليك',
       'تغيّر وقت الوصول',
+      'تغيّر وقت الوصول',
       'Sam وافق على طلبك',
       'تم إرسال طلبك',
     ]);
     expect(momList.notifications[1].body).toMatch(/^«Glass of water» · يصل خلال حوالي ١[٤٥] دقيقة$/);
-    expect(momList.notifications[3].body).toBe('«Glass of water» · يصل خلال حوالي ٥ دقائق');
+    expect(momList.notifications[3].body).toBe('«Glass of water» · يصل خلال حوالي ٦ دقائق');
+    expect(momList.notifications[4].body).toBe('«Glass of water» · يصل خلال حوالي ٥ دقائق');
     expect(momList.notifications[0].body).toBe('«Glass of water»');
 
-    expect((await t.rpc(mom, 'mx_mark_read', { p_ids: [momList.notifications[0].id] })).unreadCount).toBe(4);
+    expect((await t.rpc(mom, 'mx_mark_read', { p_ids: [momList.notifications[0].id] })).unreadCount).toBe(5);
     expect((await t.rpc(mom, 'mx_mark_read', { p_request_id: r.id })).unreadCount).toBe(0);
     expect((await t.rpc(runner, 'mx_mark_read', { p_all: true })).unreadCount).toBe(0);
   });
@@ -452,6 +454,132 @@ describe('push notifications', () => {
     const second = await service('mx_push_store_vapid', { p_public: 'pub-2', p_private: 'priv-2' });
     expect(second.publicKey).toBe(first.publicKey);
     expect((await t.rpc(mom, 'mx_me')).push.publicKey).toBe('pub-1');
+  });
+});
+
+describe('reminders', () => {
+  const remind = async () => (await t.db.query<{ n: number }>('select momexpress.send_reminders() as n')).rows[0].n;
+  const age = (id: number, minutes: number) =>
+    t.db.query(`update momexpress.requests set created_at = now() - make_interval(mins => $2), reminded_at = case when reminded_at is null then null else now() - make_interval(mins => $2) end where id = $1`, [id, minutes]);
+  const reminders = async () => (await notificationsOf(runner)).filter((n) => n.type === 'reminder');
+
+  it('is scheduled to run every minute', async () => {
+    const job = (await t.db.query<{ schedule: string; command: string }>(`select schedule, command from cron.job where jobname = 'momexpress-reminders'`)).rows[0];
+    expect(job).toEqual({ schedule: '* * * * *', command: 'select momexpress.send_reminders()' });
+  });
+
+  it('reminds the runner about a request nobody has accepted after 3 minutes, then every 10, three times', async () => {
+    const r = await create();
+    await age(r.id, 2);
+    expect(await remind()).toBe(0);
+    await age(r.id, 3);
+    expect(await remind()).toBe(1);
+    expect(await remind()).toBe(0); // not again straight away
+    const [note] = await reminders();
+    expect(note).toMatchObject({ title: 'Still waiting: Glass of water', body: 'Mom asked 3 min ago · Bedroom' });
+    for (let i = 0; i < 4; i++) {
+      await age(r.id, 10);
+      await remind();
+    }
+    expect(await reminders()).toHaveLength(3);
+  });
+
+  it('keeps reminding every 2 minutes for urgent requests', async () => {
+    const r = await create({ p_priority: 'urgent' });
+    for (let i = 0; i < 5; i++) {
+      await age(r.id, 2);
+      expect(await remind()).toBe(1);
+    }
+    expect((await reminders())[0].title).toBe('Still waiting (urgent): Glass of water');
+  });
+
+  it('stops once the request is accepted', async () => {
+    const r = await create();
+    await t.rpc(runner, 'mx_accept', { p_id: r.id });
+    await age(r.id, 30);
+    expect(await remind()).toBe(0);
+  });
+});
+
+describe('voice requests', () => {
+  const upload = (who: Who, name: string) =>
+    t.as(who, `insert into storage.objects (bucket_id, name) values ('mx-voice', $1) returning name as result`, [name]);
+  const canRead = async (who: Who, name: string) =>
+    (await t.as<number>(who, `select count(*)::int as result from storage.objects where bucket_id = 'mx-voice' and name = $1`, [name])) === 1;
+
+  it('takes a clip Mom uploaded to her own folder, and lets her and the runner play it', async () => {
+    const name = `${mom.userId}/clip_${crypto.randomUUID().slice(0, 8)}.m4a`;
+    await upload(mom, name);
+    const r = await create({ p_title: 'رسالة صوتية', p_quick_type: null, p_voice_path: name, p_voice_seconds: 7 });
+    expect(r.voice).toEqual({ path: name, seconds: 7 });
+    expect((await notificationsOf(runner))[0].body).toBe('🎤 Voice message · Bedroom');
+    expect(await canRead(mom, name)).toBe(true);
+    expect(await canRead(runner, name)).toBe(true);
+  });
+
+  it('keeps clips away from anyone else', async () => {
+    const otherMom = await t.member('aunt', 'Aunt', 'mom');
+    const name = `${mom.userId}/clip_private1.m4a`;
+    await upload(mom, name);
+    expect(await canRead(otherMom, name)).toBe(false);
+    await expect(upload(otherMom, `${mom.userId}/clip_sneaky12.m4a`)).rejects.toThrow(/row-level security/);
+  });
+
+  it('refuses a clip that was never uploaded, or someone else’s', async () => {
+    const err = await t.expectError(create({ p_voice_path: `${mom.userId}/clip_missing1.m4a`, p_voice_seconds: 5 }), 400);
+    expect(err.hint).toBe('voice_missing');
+    await t.expectError(create({ p_voice_path: `${runner.userId}/clip_whatever.m4a`, p_voice_seconds: 5 }), 400);
+  });
+});
+
+describe('thanks', () => {
+  it('lets Mom thank the runner once something has arrived, once', async () => {
+    const r = await create();
+    await t.expectError(t.rpc(mom, 'mx_thank', { p_id: r.id }), 409);
+    await t.rpc(runner, 'mx_accept', { p_id: r.id });
+    await t.rpc(runner, 'mx_start', { p_id: r.id });
+    await t.rpc(runner, 'mx_deliver', { p_id: r.id });
+    const res = await t.rpc(mom, 'mx_thank', { p_id: r.id });
+    expect(res.request.thankedAt).toEqual(expect.any(Number));
+    expect(res.event.type).toBe('thanked');
+    expect((await notificationsOf(runner))[0]).toMatchObject({ type: 'thanks', title: 'Mom says thanks ❤️', body: '“Glass of water”' });
+    expect((await t.rpc(mom, 'mx_thank', { p_id: r.id })).alreadyApplied).toBe(true);
+    expect((await notificationsOf(runner)).filter((n) => n.type === 'thanks')).toHaveLength(1);
+    await t.expectError(t.rpc(runner, 'mx_thank', { p_id: r.id }), 403);
+  });
+});
+
+describe('messages', () => {
+  it('carries short messages both ways on an active request, in Arabic for Mom', async () => {
+    const r = await create();
+    await t.rpc(runner, 'mx_accept', { p_id: r.id });
+    const sent = await t.rpc(runner, 'mx_send_message', { p_id: r.id, p_text: '  ما لقيته، أجيب بديل؟ ' });
+    expect(sent.request.lastMessage).toMatchObject({ text: 'ما لقيته، أجيب بديل؟', from: runner.userId });
+    expect((await notificationsOf(mom))[0]).toMatchObject({ type: 'message', title: 'رسالة من Sam', body: 'ما لقيته، أجيب بديل؟' });
+
+    await t.rpc(mom, 'mx_send_message', { p_id: r.id, p_text: 'نعم' });
+    expect((await notificationsOf(runner))[0]).toMatchObject({ type: 'message', title: 'Mom: نعم', body: '“Glass of water”' });
+    const detail = await t.rpc(mom, 'mx_get_request', { p_id: r.id });
+    expect(detail.events.filter((e: { type: string }) => e.type === 'message').map((e: { data: { text: string } }) => e.data.text)).toEqual([
+      'ما لقيته، أجيب بديل؟',
+      'نعم',
+    ]);
+  });
+
+  it('refuses empty or long messages, finished requests, and other people', async () => {
+    const r = await create();
+    await t.expectError(t.rpc(runner, 'mx_send_message', { p_id: r.id, p_text: '   ' }), 400);
+    await t.expectError(t.rpc(runner, 'mx_send_message', { p_id: r.id, p_text: 'x'.repeat(121) }), 400);
+    const otherMom = await t.member('aunt', 'Aunt', 'mom');
+    await t.expectError(t.rpc(otherMom, 'mx_send_message', { p_id: r.id, p_text: 'hi' }), 404);
+    await t.rpc(mom, 'mx_cancel', { p_id: r.id });
+    await t.expectError(t.rpc(runner, 'mx_send_message', { p_id: r.id, p_text: 'دقيقة وأجي' }), 409);
+  });
+});
+
+describe('keep-awake ping', () => {
+  it('answers anyone, and reveals nothing', async () => {
+    expect(await t.rpc(null, 'mx_ping')).toBe('ok');
   });
 });
 

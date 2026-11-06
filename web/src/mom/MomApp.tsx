@@ -12,6 +12,7 @@ import { MomHome } from './MomHome';
 import { MomSettings } from './MomSettings';
 import { SendPage } from './SendPage';
 import { TrackPage } from './TrackPage';
+import { VoicePage } from './VoicePage';
 import { useTextSize } from './textSize';
 import './mom.css';
 
@@ -129,6 +130,7 @@ export function MomApp({ me }: { me: PublicUser }) {
       <Route element={<Shell />}>
         <Route index element={<MomHome />} />
         <Route path="send/:item" element={<SendPage me={me} />} />
+        <Route path="voice" element={<VoicePage me={me} />} />
         <Route path="requests/:id" element={<TrackPage />} />
         <Route path="history" element={<MomHistory />} />
         <Route path="settings" element={<MomSettings me={me} />} />

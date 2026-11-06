@@ -2,11 +2,12 @@ import { ArrowRight, Ban, Bike, Check, CircleX, Clock, LoaderCircle, MapPin, Pac
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { can, isActive } from '../../../shared/lifecycle.js';
-import type { DeliveryRequest } from '../../../shared/types.js';
+import type { DeliveryRequest, PublicUser } from '../../../shared/types.js';
 import { mx } from '../api/mx';
 import { ApiError } from '../api/client';
 import { Confetti } from '../components/Confetti';
 import { Sheet } from '../components/Sheet';
+import { VoicePlayer } from '../components/VoicePlayer';
 import { useServerNow, usePrevious } from '../lib/hooks';
 import { applyMutation, loadRequestDetail, refreshRequest } from '../lib/sync';
 import { upsertRequests, useApp } from '../store/app';
@@ -67,6 +68,79 @@ function Steps({ request }: { request: DeliveryRequest }) {
         );
       })}
     </ol>
+  );
+}
+
+/** Short messages on this request; a question from the runner gets big yes/no answers. */
+function Messages({ request, me }: { request: DeliveryRequest; me: PublicUser }) {
+  const events = useApp((s) => s.requestEvents[request.id]);
+  const [busy, setBusy] = useState(false);
+  const messages = (events ?? []).filter((e) => e.type === 'message');
+  if (messages.length === 0) return null;
+  const last = messages[messages.length - 1];
+  const asked = last.actor?.id !== me.id && /[؟?]\s*$/.test(String(last.data.text ?? '')) && isActive(request.status);
+
+  const reply = async (text: string) => {
+    setBusy(true);
+    try {
+      applyMutation(await mx.sendMessage(request, text));
+    } catch (err) {
+      toast({ kind: 'error', title: err instanceof ApiError && err.isNetwork ? 'لا يوجد إنترنت' : 'لم يُرسل الرد', body: 'حاولي مرة أخرى.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="m-messages" aria-label="الرسائل">
+      {messages.map((m) => {
+        const mine = m.actor?.id === me.id;
+        return (
+          <div key={m.id} className={`m-msg${mine ? ' mine' : ''}`}>
+            {!mine && <span className="m-msg-from">{m.actor?.displayName ?? 'ابنك'}</span>}
+            <span className="m-msg-text">{String(m.data.text ?? '')}</span>
+            <span className="m-msg-time">{time(m.createdAt)}</span>
+          </div>
+        );
+      })}
+      {asked && (
+        <div className="m-answer">
+          <button type="button" className="m-btn" disabled={busy} onClick={() => void reply('نعم')}>
+            نعم 👍
+          </button>
+          <button type="button" className="m-btn m-btn-plain" disabled={busy} onClick={() => void reply('لا')}>
+            لا
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Once it has arrived, one tap to say thank you. */
+function Thanks({ request }: { request: DeliveryRequest }) {
+  const [busy, setBusy] = useState(false);
+  if (request.status !== 'delivered') return null;
+  if (request.thankedAt) return <p className="m-thanked">أرسلتِ شكراً ❤️</p>;
+  return (
+    <button
+      type="button"
+      className="m-btn m-btn-send m-btn-thanks"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          applyMutation(await mx.thank(request));
+          toast({ kind: 'success', title: 'وصل شكرك ❤️' });
+        } catch (err) {
+          toast({ kind: 'error', title: err instanceof ApiError && err.isNetwork ? 'لا يوجد إنترنت' : 'لم يُرسل', body: 'حاولي مرة أخرى.' });
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {busy ? <LoaderCircle className="spin" aria-hidden="true" /> : null} شكراً ❤️
+    </button>
   );
 }
 
@@ -156,6 +230,8 @@ export function TrackPage() {
         )}
       </section>
 
+      <Thanks request={request} />
+      <Messages request={request} me={me} />
       <Steps request={request} />
 
       <section className="m-card m-what">
@@ -169,6 +245,11 @@ export function TrackPage() {
             {request.priority === 'urgent' && <span className="m-urgent-tag">مستعجل</span>}
           </span>
           {request.notes && <span className="m-card-eta">{request.notes}</span>}
+          {request.voice && (
+            <span className="m-row">
+              <VoicePlayer voice={request.voice} lang="ar" className="m-btn m-btn-small m-btn-plain" />
+            </span>
+          )}
         </span>
       </section>
 
@@ -178,7 +259,11 @@ export function TrackPage() {
         </button>
       ) : (
         !isActive(request.status) && (
-          <button type="button" className="m-btn m-btn-send" onClick={() => navigate(`/send/again?again=${request.id}`)}>
+          <button
+            type="button"
+            className={`m-btn ${request.status === 'delivered' ? 'm-btn-plain' : 'm-btn-send'}`}
+            onClick={() => navigate(request.voice ? '/voice' : `/send/again?again=${request.id}`)}
+          >
             <RotateCcw aria-hidden="true" /> اطلبيه مرة أخرى
           </button>
         )

@@ -27,6 +27,9 @@ export type NotificationType =
   | 'declined'
   | 'cancelled'
   | 'details_updated'
+  | 'reminder'
+  | 'thanks'
+  | 'message'
   | 'test';
 
 export interface UserPrefs {
@@ -81,6 +84,12 @@ export interface DeliveryRequest {
   detailsUpdatedAt: number | null;
   /** The id the app generated when sending it, so a resend is recognised. */
   clientRequestId: string | null;
+  /** A voice message Mom recorded instead of typing (a file in the mx-voice storage bucket). */
+  voice: { path: string; seconds: number } | null;
+  /** When Mom said thanks for it, once it arrived. */
+  thankedAt: number | null;
+  /** The newest short message on the request, from either side. */
+  lastMessage: { text: string; from: string; at: number } | null;
   version: number;
 }
 
@@ -92,7 +101,9 @@ export type RequestEventType =
   | 'eta_updated'
   | 'delivered'
   | 'cancelled'
-  | 'edited';
+  | 'edited'
+  | 'thanked'
+  | 'message';
 
 export interface RequestEvent {
   id: number;

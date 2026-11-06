@@ -11,12 +11,17 @@ It's a private app for a small family: no public sign-up, no payments, no maps. 
 - Sending takes two taps: the item, then *where she is* (her last place is already picked). **Urgent** and a **note** are optional.
 - A tracking screen with one big, plain message (*“أحمد في الطريق إليك”*), four steps with times, and *“يصل خلال حوالي ٥ دقائق”*, counted down on the phone and always marked as approximate.
 - Cancel before it's delivered, and **اطلبيه مرة أخرى** (request again) from anything in her history.
+- **قولي ما تحتاجينه**: tap the microphone and say what she needs instead of typing; the runner plays the recording.
+- **شكراً ❤️** once something arrives, which the runner sees.
+- Short messages from the runner appear on her request; a question (ending in ؟) gets big **نعم / لا** buttons.
 - Large text by default, with a text-size setting; Arabic digits; her notifications are in Arabic too.
 
 **For the runner**
 - A dashboard built around incoming work: new requests sorted by urgency with destination, priority, notes and waiting time visible on the card, plus **Accept** and **Decline** right there.
 - Accepting asks for an ETA in one tap (2–30 min or a custom value). Then **Start delivery**, **Update ETA** and **Mark delivered**, in that order — the app won't let a request be delivered before it's accepted and started.
 - A chime (and vibration on phones) when a request arrives, today's numbers, recent activity and full history.
+- **Reminders**: a request nobody has accepted is pushed again after 3 minutes, then every 10 (three times); urgent ones every 2 minutes for half an hour.
+- Play Mom's voice messages, send her short messages (one tap for ready-made Arabic ones), and see when she says thanks.
 
 **For both**
 - Everything is live: a change on one device shows up on the other within a second, with no refreshing.
@@ -54,6 +59,10 @@ To work on the app locally: `npm install`, then `npm run dev` (http://localhost:
 ### Notifications
 
 Push works in Chrome, Edge and Firefox on computers and Android, and on iPhone/iPad (iOS 16.4+) once MomExpress is added to the Home Screen. Each person turns it on per device in **Settings**, where they can also send a test notification and choose which kinds they get. Notifications open straight to the request when tapped. Signing out stops a device's notifications.
+
+### Keeping the project awake
+
+Free Supabase projects pause after about a week without use. `.github/workflows/keep-awake.yml` calls the harmless `mx_ping` function twice a week so that never happens. GitHub turns off scheduled workflows in a repository with no commits for 60 days; if that happens it emails you, and one click (**Actions → Keep Supabase awake → Enable workflow**) turns it back on.
 
 ### Updates
 
